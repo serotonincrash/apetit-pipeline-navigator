@@ -16,4 +16,6 @@ export interface RunRequest {
   action_id?: string | null;
   /** Overrides of step params, by step name and then param name. */
   step_params?: RunRequestStepParams;
+  /** Whether the fix proposer looks for errors the rules miss. */
+  run_fix_proposer?: boolean;
 }

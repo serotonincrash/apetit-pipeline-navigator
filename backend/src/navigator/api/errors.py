@@ -13,8 +13,8 @@ NOT_FOUND: dict[int | str, dict[str, Any]] = {
 BAD_PERSONA: dict[int | str, dict[str, Any]] = {
     400: {"model": ErrorMessage, "description": "The X-Persona header is missing or malformed."}
 }
-NOT_BUILT: dict[int | str, dict[str, Any]] = {
-    501: {"model": ErrorMessage, "description": "Not built yet. The message names the milestone."}
+WRONG_ROLE: dict[int | str, dict[str, Any]] = {
+    403: {"model": ErrorMessage, "description": "This decision belongs to the other specialist."}
 }
 
 
@@ -29,7 +29,3 @@ def invalid(location: tuple[str, ...], message: str) -> RequestValidationError:
 def not_found(thing: str, record_id: str) -> HTTPException:
     """`thing` is the word the app uses, such as 'run' or 'table'."""
     return HTTPException(status.HTTP_404_NOT_FOUND, f"No {thing} with id {record_id}.")
-
-
-def not_built(message: str) -> HTTPException:
-    return HTTPException(status.HTTP_501_NOT_IMPLEMENTED, message)

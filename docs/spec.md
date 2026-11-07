@@ -809,9 +809,9 @@ The brief asks for a working AI solution and documentation with usage instructio
 Demo script:
 
 1. The problem, in one slide: Apetit's climate data is scattered, and farming risk is priced nowhere.
-2. Start a run of recipe 1 from the raw package. It stops at step 4 and names the fixes waiting for review.
+2. Start a run of recipe 1 from the raw package, with the option to look for problems the data checks miss. It stops at step 4 and names the fixes waiting for review.
 3. Data review: open an agent proposal, read its evidence and explanation, approve it. Reject another and say why. Run again and show every step finish.
-4. Risk view: cost per year for each crop and region under the three climate scenarios. Click one figure and follow it down to farms, weather cells and the raw survey rows, including the correction just approved.
+4. Risk view: cost per year for each crop and region under the three climate scenarios. Click one figure and follow it down to farms, weather cells and the raw survey rows, including a correction approved from a data check (R1 to R5). The agent's proposal in step 3 is an ERP purchase line, which the risk figures don't use, so it won't appear here.
 5. Actions: compare irrigation, relocation and heat-tolerant pea on cost and risk removed, and show the Foodhills supply insight.
 6. Report: open the interactive report, expand a number to its lineage, approve it and publish.
 7. The path to production: the same layers on Fabric, and the next recipes (GHG inventory, SBTi pathways, nature impacts in lake catchments) on the same base.

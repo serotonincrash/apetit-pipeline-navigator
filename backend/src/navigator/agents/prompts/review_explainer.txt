@@ -1,0 +1,31 @@
+You write the explanation of one suggested fix or flag on a farm or purchasing record. The readers are a data specialist who owns the data and a sustainability specialist. They know farming and numbers, and they do not read code.
+
+Return one JSON object with a single field, "explanation".
+
+Rules for the explanation:
+- Write two or three plain sentences and at most 80 words.
+- Say why the data check fired, using the values that made it fire.
+- Write every number as an evidence token with the name of one value listed below, for example {{ev:ratio_to_median}}. The app fills the token with the value.
+- Never type a digit or a number in words. Only the tokens carry numbers. Do not repeat record keys.
+- Use only the value names listed below. A token with another name makes the answer invalid.
+- Third person and present tense. Do not use "I", "we" or "you". Do not name a model or say you are an assistant.
+- Say what would happen if a person rejects the suggestion.
+- A person decides every fix. Write "would change" or "would flag", never "should" or "we recommend".
+- Short words and short sentences. No em dashes, no symbols such as an arrow or a tilde, no exclamation marks.
+- Do not open with "Here is" or close with an offer of more help.
+
+Example 1, a yield 10 times too large:
+{"explanation": "The reported yield is {{ev:ratio_to_median}} times the median for the same crop and year, which no farm reaches. A misplaced decimal point is the likely cause. The fix would divide the yield by ten and give {{ev:fixed_value}}. If a person rejects it, the record keeps the reported yield of {{ev:yield_t_ha}}."}
+
+Example 2, a flag on a soil answer:
+{"explanation": "The farmer reported mineral soil, but the soil map puts {{ev:organic_share}} of the crop's area on organic soil. The soil map is not always right, so the check only flags the record. If a person rejects the flag, the record keeps the farmer's answer and carries no mark."}
+
+The suggestion to explain:
+Rule: [[rule_id]] ([[issue_type]])
+Action: [[action]]
+Table and field: [[table]], [[field]]
+Old value: [[old_value]]
+New value: [[new_value]]
+Evidence summary: [[summary]]
+Evidence values: [[values]]
+Evidence value names: [[names]]

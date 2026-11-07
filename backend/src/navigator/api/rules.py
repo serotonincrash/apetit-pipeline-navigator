@@ -6,7 +6,7 @@ from sqlalchemy import select
 from navigator import ids
 from navigator.api import schemas
 from navigator.api.dependencies import PersonaDep, SessionDep, require_role
-from navigator.api.errors import BAD_PERSONA, NOT_FOUND, not_found
+from navigator.api.errors import BAD_PERSONA, NOT_FOUND, WRONG_ROLE, not_found
 from navigator.db import models as m
 from navigator.db.decisions import latest_decisions, rule_status, rule_target_id
 
@@ -27,7 +27,7 @@ def list_rules(session: SessionDep) -> list[schemas.Rule]:
     "/rules/{rule_id}/decisions",
     operation_id="decideRule",
     status_code=status.HTTP_201_CREATED,
-    responses={**BAD_PERSONA, **NOT_FOUND},
+    responses={**BAD_PERSONA, **WRONG_ROLE, **NOT_FOUND},
 )
 def decide_rule(
     rule_id: str, request: schemas.RuleDecisionRequest, session: SessionDep, persona: PersonaDep

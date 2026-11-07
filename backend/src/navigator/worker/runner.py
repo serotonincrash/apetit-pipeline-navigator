@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pandas as pd
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from navigator import ids
@@ -90,10 +90,29 @@ def step_params(recipe_step: StepSpec, overrides: Mapping[str, Any]) -> Params:
     return {**recipe_step.params, **overrides.get(recipe_step.name, {})}
 
 
+def earlier_explanations(session: Session, proposal_keys: Collection[str]) -> dict[str, str]:
+    """The latest non-empty explanation of each proposal key, from this run or an earlier one."""
+    rows = session.execute(
+        select(m.Proposal.proposal_key, m.Proposal.explanation)
+        .where(
+            m.Proposal.proposal_key.in_(proposal_keys),
+            m.Proposal.explanation.is_not(None),
+            m.Proposal.explanation != "",
+        )
+        .order_by(m.Proposal.created_at, m.Proposal.proposal_id)
+    ).all()
+    return {key: text for key, text in rows if text}
+
+
 def proposals_with_status(session: Session, run_id: str) -> pd.DataFrame:
-    """This run's proposals, each with the status set by its latest decision."""
+    """This run's proposals, each with the status set by its latest decision.
+
+    `explanation` is the latest one written for the proposal key in any run, empty when none.
+    """
     proposals = session.scalars(select(m.Proposal).where(m.Proposal.run_id == run_id)).all()
-    latest = latest_decisions(session, "proposal", (p.proposal_key for p in proposals))
+    keys = [p.proposal_key for p in proposals]
+    latest = latest_decisions(session, "proposal", keys)
+    explanations = earlier_explanations(session, keys)
 
     rows: list[dict[str, Any]] = []
     for p in proposals:
@@ -110,6 +129,8 @@ def proposals_with_status(session: Session, run_id: str) -> pd.DataFrame:
                 "new_value": proposal_value(p.new_value, decision),
                 "action": p.action,
                 "status": proposal_status(p.action, decision),
+                "evidence": p.evidence,
+                "explanation": explanations.get(p.proposal_key, ""),
             }
         )
     columns = [
@@ -123,6 +144,8 @@ def proposals_with_status(session: Session, run_id: str) -> pd.DataFrame:
         "new_value",
         "action",
         "status",
+        "evidence",
+        "explanation",
     ]
     return pd.DataFrame(rows, columns=columns)
 
@@ -538,6 +561,18 @@ class RunExecution:
                     )
                 )
         session.flush()
+
+        if result.explanations is not None:
+            # None marks an explanation that failed; Data review shows "Explanation failed".
+            for row in result.explanations.to_dict("records"):
+                session.execute(
+                    update(m.Proposal)
+                    .where(
+                        m.Proposal.run_id == self.run_id,
+                        m.Proposal.proposal_key == row["proposal_key"],
+                    )
+                    .values(explanation=_text(row["explanation"]))
+                )
 
         if result.decisions is not None and len(result.decisions):
             self._store_policy_decisions(session, result.decisions)

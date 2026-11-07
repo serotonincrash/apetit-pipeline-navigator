@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from navigator import ids
 from navigator.api import schemas
 from navigator.api.dependencies import PersonaDep, SessionDep, require_role
-from navigator.api.errors import BAD_PERSONA, NOT_FOUND, invalid, not_found
+from navigator.api.errors import BAD_PERSONA, NOT_FOUND, WRONG_ROLE, invalid, not_found
 from navigator.db import models as m
 from navigator.db.decisions import (
     ProposalStatus,
@@ -85,7 +85,7 @@ def get_proposal(proposal_id: str, session: SessionDep) -> schemas.ProposalDetai
     "/proposals/decisions",
     operation_id="decideProposals",
     status_code=status.HTTP_201_CREATED,
-    responses={**BAD_PERSONA, **NOT_FOUND},
+    responses={**BAD_PERSONA, **WRONG_ROLE, **NOT_FOUND},
 )
 def decide_proposals(
     request: schemas.BulkProposalDecisionRequest, session: SessionDep, persona: PersonaDep
@@ -115,7 +115,7 @@ def decide_proposals(
     "/proposals/{proposal_id}/decisions",
     operation_id="decideProposal",
     status_code=status.HTTP_201_CREATED,
-    responses={**BAD_PERSONA, **NOT_FOUND},
+    responses={**BAD_PERSONA, **WRONG_ROLE, **NOT_FOUND},
 )
 def decide_proposal(
     proposal_id: str,

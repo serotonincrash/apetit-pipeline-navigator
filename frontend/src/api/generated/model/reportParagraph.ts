@@ -6,9 +6,11 @@
  */
 
 export interface ReportParagraph {
+  /** One of summary, risk, drivers, options, insights or method, in outline order. */
+  section: string;
   heading: string | null;
   /** Numbers appear only as tokens, {{metric:met_...}} or {{insight:ins_...}}. */
   text: string;
-  /** The logged LLM call that wrote this paragraph. */
-  call_id: string;
+  /** The logged LLM call that wrote this paragraph. Empty for text the app builds from the run's records, such as the file checksums. */
+  call_id: string | null;
 }

@@ -59,6 +59,9 @@ def seed_from_disk(package_dir: Path, bucket: str) -> int:
     count = 0
     for file in sorted(p for p in package_dir.rglob("*") if p.is_file()):
         path = file.relative_to(package_dir).as_posix()
+        # Hidden files and folders, such as .DS_Store or a .venv, are not part of the package.
+        if any(part.startswith(".") for part in path.split("/")):
+            continue
         content = file.read_bytes()
         uri = objects.put_bytes(bucket, objects.package_key(path), content)
         _record(

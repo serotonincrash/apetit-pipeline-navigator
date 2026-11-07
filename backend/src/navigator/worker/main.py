@@ -10,6 +10,7 @@ from navigator.db.session import session_scope
 from navigator.logs import configure, get_logger
 from navigator.recipes.registry import RECIPES
 from navigator.settings import get_settings
+from navigator.worker.report_run import execute_report_run
 from navigator.worker.runner import emit, execute_run
 
 log = get_logger(__name__)
@@ -60,6 +61,16 @@ def claim_next_run() -> str | None:
         return run.run_id
 
 
+def execute(run_id: str) -> None:
+    """Report runs have no recipe steps, so they go to the report drafter."""
+    with session_scope() as session:
+        kind = session.get_one(m.Run, run_id).kind
+    if kind == "report":
+        execute_report_run(run_id)
+    else:
+        execute_run(run_id)
+
+
 def main() -> None:
     settings = get_settings()
     configure(settings.log_level)
@@ -72,7 +83,7 @@ def main() -> None:
             time.sleep(settings.worker_poll_seconds)
             continue
         log.info("run claimed", extra={"run_id": run_id})
-        execute_run(run_id)
+        execute(run_id)
 
 
 if __name__ == "__main__":

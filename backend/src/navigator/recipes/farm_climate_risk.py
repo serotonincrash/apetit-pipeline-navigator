@@ -54,9 +54,18 @@ RAW_FILES = {
     "transition_scenarios": {"path": "data/05_scenarios/transition_scenarios.csv"},
 }
 
+# The thresholds of rules R1 to R5. The fix proposer reads them to describe the rules.
+RULE_PARAMS = {
+    "r1_yield_max_ratio_to_median": 5.0,
+    "r2_nitrogen_ratio_high": 5.0,
+    "r2_nitrogen_ratio_low": 0.2,
+    "r3_area_tolerance": 0.01,
+    "r4_organic_share_threshold": 0.30,
+}
+
 RECIPE = Recipe(
     recipe_id="farm_climate_risk",
-    version=3,
+    version=4,
     title="Farm climate risk",
     steps=(
         StepSpec("load_raw", inputs=(), params={"files": RAW_FILES}),
@@ -70,14 +79,48 @@ RECIPE = Recipe(
                 "dev_issue_labels",
             ),
             params={
-                "r1_yield_max_ratio_to_median": 5.0,
-                "r2_nitrogen_ratio_high": 5.0,
-                "r2_nitrogen_ratio_low": 0.2,
-                "r3_area_tolerance": 0.01,
-                "r4_organic_share_threshold": 0.30,
+                **RULE_PARAMS,
                 # How close a fixed value must be to the answer key's true value to count as a
                 # match in the backtest.
                 "backtest_value_tolerance": {"relative": 0.01, "absolute": 0.11},
+            },
+        ),
+        StepSpec(
+            "propose_fixes",
+            inputs=(
+                "farm_survey",
+                "farm_registry",
+                "parcels",
+                "crop_history",
+                "erp_purchase_lines",
+                "dev_issue_labels",
+                "rule_validation",
+                PROPOSALS_INPUT,
+            ),
+            params={
+                # The run request switches this on; see `run_fix_proposer` in POST /api/runs.
+                "enabled": False,
+                # Raw tables the proposer reads, one request each. The purchase lines have
+                # labelled errors in the answer key and no rule.
+                "tables": [
+                    "farm_survey",
+                    "farm_registry",
+                    "parcels",
+                    "crop_history",
+                    "erp_purchase_lines",
+                ],
+                "rule_params": RULE_PARAMS,
+            },
+        ),
+        StepSpec(
+            "explain_proposals",
+            inputs=(PROPOSALS_INPUT,),
+            params={
+                # Proposals to explain in this run, in order of proposal key. None explains all
+                # that have no explanation yet; the rest wait for the next run.
+                "max_explanations": None,
+                # Requests in flight at once, one per explanation.
+                "concurrency": 4,
             },
         ),
         StepSpec(

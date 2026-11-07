@@ -35,8 +35,6 @@ export * from './errorMessage';
 export * from './evidence';
 export * from './evidenceValues';
 export * from './exportArtifactParams';
-export * from './exportReportFormat';
-export * from './exportReportParams';
 export * from './health';
 export * from './hTTPValidationError';
 export * from './insight';

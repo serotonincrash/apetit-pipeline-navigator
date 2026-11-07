@@ -35,7 +35,6 @@ import type {
   Decision,
   ErrorMessage,
   ExportArtifactParams,
-  ExportReportParams,
   HTTPValidationError,
   Health,
   ListActionsParams,
@@ -2103,7 +2102,7 @@ export const getListActionsQueryKey = (params?: ListActionsParams,) => {
     }
 
 
-export const getListActionsQueryOptions = <TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError | ErrorMessage>(params?: ListActionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActions>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+export const getListActionsQueryOptions = <TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError>(params?: ListActionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActions>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
@@ -2122,10 +2121,10 @@ const {query: queryOptions, request: requestOptions} = options ?? {};
 }
 
 export type ListActionsQueryResult = NonNullable<Awaited<ReturnType<typeof listActions>>>
-export type ListActionsQueryError = HTTPValidationError | ErrorMessage
+export type ListActionsQueryError = HTTPValidationError
 
 
-export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError | ErrorMessage>(
+export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError>(
  params: undefined |  ListActionsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActions>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listActions>>,
@@ -2135,7 +2134,7 @@ export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, 
       >, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError | ErrorMessage>(
+export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError>(
  params?: ListActionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActions>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listActions>>,
@@ -2145,7 +2144,7 @@ export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, 
       >, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError | ErrorMessage>(
+export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError>(
  params?: ListActionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActions>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
@@ -2153,7 +2152,7 @@ export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, 
  * @summary List Actions
  */
 
-export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError | ErrorMessage>(
+export function useListActions<TData = Awaited<ReturnType<typeof listActions>>, TError = HTTPValidationError>(
  params?: ListActionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listActions>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
@@ -2720,30 +2719,21 @@ export const useDecideResultSet = <TError = ErrorMessage | HTTPValidationError,
       return useMutation(getDecideResultSetMutationOptions(options), queryClient);
     }
 
-export const getExportReportUrl = (resultSetId: string,
-    params?: ExportReportParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getExportReportUrl = (resultSetId: string,) => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/result-sets/${resultSetId}/report/export?${stringifiedParams}` : `/api/result-sets/${resultSetId}/report/export`
+  return `/api/result-sets/${resultSetId}/report/export`
 }
 
 /**
- * The published report as PDF or Markdown.
+ * The published report as Markdown, with every token replaced by its number and unit.
  * @summary Export Report
  */
-export const exportReport = async (resultSetId: string,
-    params?: ExportReportParams, options?: Parameters<typeof fetcher>[1]): Promise<Blob> => {
+export const exportReport = async (resultSetId: string, options?: Parameters<typeof fetcher>[1]): Promise<unknown> => {
 
-  return fetcher<Blob>(getExportReportUrl(resultSetId,params),
+  return fetcher<unknown>(getExportReportUrl(resultSetId),
   {
     ...options,
     method: 'GET'
@@ -2756,25 +2746,23 @@ export const exportReport = async (resultSetId: string,
 
 
 
-export const getExportReportQueryKey = (resultSetId: string,
-    params?: ExportReportParams,) => {
+export const getExportReportQueryKey = (resultSetId: string,) => {
     return [
-    `/api/result-sets/${resultSetId}/report/export`, ...(params ? [params] : [])
+    `/api/result-sets/${resultSetId}/report/export`
     ] as const;
     }
 
 
-export const getExportReportQueryOptions = <TData = Awaited<ReturnType<typeof exportReport>>, TError = ErrorMessage | HTTPValidationError>(resultSetId: string,
-    params?: ExportReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+export const getExportReportQueryOptions = <TData = Awaited<ReturnType<typeof exportReport>>, TError = ErrorMessage | HTTPValidationError>(resultSetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getExportReportQueryKey(resultSetId,params);
+  const queryKey =  queryOptions?.queryKey ?? getExportReportQueryKey(resultSetId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportReport>>> = ({ signal }) => exportReport(resultSetId,params, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof exportReport>>> = ({ signal }) => exportReport(resultSetId, { signal, ...requestOptions });
 
 
 
@@ -2788,8 +2776,7 @@ export type ExportReportQueryError = ErrorMessage | HTTPValidationError
 
 
 export function useExportReport<TData = Awaited<ReturnType<typeof exportReport>>, TError = ErrorMessage | HTTPValidationError>(
- resultSetId: string,
-    params: undefined |  ExportReportParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>> & Pick<
+ resultSetId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof exportReport>>,
           TError,
@@ -2799,8 +2786,7 @@ export function useExportReport<TData = Awaited<ReturnType<typeof exportReport>>
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useExportReport<TData = Awaited<ReturnType<typeof exportReport>>, TError = ErrorMessage | HTTPValidationError>(
- resultSetId: string,
-    params?: ExportReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>> & Pick<
+ resultSetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof exportReport>>,
           TError,
@@ -2810,8 +2796,7 @@ export function useExportReport<TData = Awaited<ReturnType<typeof exportReport>>
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 export function useExportReport<TData = Awaited<ReturnType<typeof exportReport>>, TError = ErrorMessage | HTTPValidationError>(
- resultSetId: string,
-    params?: ExportReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ resultSetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
@@ -2819,12 +2804,11 @@ export function useExportReport<TData = Awaited<ReturnType<typeof exportReport>>
  */
 
 export function useExportReport<TData = Awaited<ReturnType<typeof exportReport>>, TError = ErrorMessage | HTTPValidationError>(
- resultSetId: string,
-    params?: ExportReportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
+ resultSetId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof exportReport>>, TError, TData>>, request?: SecondParameter<typeof fetcher>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getExportReportQueryOptions(resultSetId,params,options)
+  const queryOptions = getExportReportQueryOptions(resultSetId,options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

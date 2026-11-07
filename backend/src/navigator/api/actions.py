@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from navigator import ids
 from navigator.api import schemas
 from navigator.api.dependencies import PersonaDep, SessionDep, require_role
-from navigator.api.errors import BAD_PERSONA, NOT_FOUND, not_found
+from navigator.api.errors import BAD_PERSONA, NOT_FOUND, WRONG_ROLE, not_found
 from navigator.db import models as m
 from navigator.db.decisions import action_status, latest_decisions, option_status
 
@@ -41,7 +41,7 @@ def list_actions(
     "/actions/{action_id}/decisions",
     operation_id="decideAction",
     status_code=status.HTTP_201_CREATED,
-    responses={**BAD_PERSONA, **NOT_FOUND},
+    responses={**BAD_PERSONA, **WRONG_ROLE, **NOT_FOUND},
 )
 def decide_action(
     action_id: str,
@@ -96,7 +96,7 @@ def list_action_options(result_set_id: str, session: SessionDep) -> list[schemas
     "/action-options/{option_id}/decisions",
     operation_id="decideActionOption",
     status_code=status.HTTP_201_CREATED,
-    responses={**BAD_PERSONA, **NOT_FOUND},
+    responses={**BAD_PERSONA, **WRONG_ROLE, **NOT_FOUND},
 )
 def decide_action_option(
     option_id: str,

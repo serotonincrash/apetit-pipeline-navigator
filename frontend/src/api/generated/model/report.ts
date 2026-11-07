@@ -10,7 +10,11 @@ import type { ReportParagraph } from './reportParagraph';
 import type { ReportStatus } from './reportStatus';
 
 export interface Report {
+  report_id: string;
   result_set_id: string;
+  /** The draft's number, counting from 1 for each result set. */
+  version: number;
+  /** The status of the result set the report is for. */
   status: ReportStatus;
   /** The report run that wrote the draft. */
   run_id: string;

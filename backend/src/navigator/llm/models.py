@@ -1,6 +1,7 @@
 """The models behind the wrapper: Gemini through google-genai, and a fixed-answer fake."""
 
 import json
+from collections.abc import Callable
 from typing import Any, Protocol
 
 from pydantic import BaseModel
@@ -24,14 +25,16 @@ class TextModel(Protocol):
         ...
 
 
-# Filled in by the agents as they are written: one valid answer per output schema.
-FAKE_RESPONSES: dict[type[BaseModel], dict[str, Any]] = {}
+# Filled in by the agents as they are written: one valid answer per output schema. An answer
+# that depends on the prompt, such as one citing ids the prompt carries, is a function of it.
+FakeResponse = dict[str, Any] | Callable[[str], dict[str, Any]]
+FAKE_RESPONSES: dict[type[BaseModel], FakeResponse] = {}
 
 
 class FakeModel:
     name = "fake"
 
-    def __init__(self, responses: dict[type[BaseModel], dict[str, Any]] | None = None) -> None:
+    def __init__(self, responses: dict[type[BaseModel], FakeResponse] | None = None) -> None:
         self._responses = FAKE_RESPONSES if responses is None else responses
 
     def generate(self, prompt: str, schema: type[BaseModel]) -> str:
@@ -40,7 +43,8 @@ class FakeModel:
                 f"The fake model has no answer for {schema.__name__}. "
                 "Add one to navigator.llm.models.FAKE_RESPONSES."
             )
-        return json.dumps(self._responses[schema])
+        response = self._responses[schema]
+        return json.dumps(response(prompt) if callable(response) else response)
 
 
 class GeminiModel:

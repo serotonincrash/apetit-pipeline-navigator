@@ -1,13 +1,19 @@
 import { useNavigate } from "@tanstack/react-router";
-import { useCreateRun } from "@/api/generated/client";
+import { useCreateRun, useGetRun } from "@/api/generated/client";
 import { requireName } from "@/api/persona";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { messageOf } from "@/lib/errors";
 
 /** Shown once decisions are in that the latest run has not used. */
-export function RunAgainBar({ decisions }: { decisions: number }) {
+export function RunAgainBar({ decisions, runId }: { decisions: number; runId: string }) {
   const navigate = useNavigate();
+  const run = useGetRun(runId);
+  // The next run keeps the option, so proposals the assistant suggested stay in the queue.
+  const stepParams = run.data?.params.step_params as
+    | { propose_fixes?: { enabled?: boolean } }
+    | undefined;
+  const fixProposer = stepParams?.propose_fixes?.enabled === true;
   const start = useCreateRun({
     mutation: {
       onSuccess: (run) => void navigate({ to: "/runs/$runId", params: { runId: run.run_id } }),
@@ -23,7 +29,11 @@ export function RunAgainBar({ decisions }: { decisions: number }) {
         variant="primary"
         disabled={start.isPending}
         onClick={() => {
-          if (requireName()) start.mutate({ data: { recipe_id: "farm_climate_risk" } });
+          if (requireName()) {
+            start.mutate({
+              data: { recipe_id: "farm_climate_risk", run_fix_proposer: fixProposer },
+            });
+          }
         }}
       >
         Run again with approved fixes

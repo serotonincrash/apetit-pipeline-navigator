@@ -89,7 +89,9 @@ export function ProposalPanel({
         <p className="mt-1">
           {detail.explanation
             ? fillEvidenceTokens(detail.explanation, detail.evidence.values)
-            : "No explanation has been written yet."}
+            : detail.explanation === null
+              ? "Explanation failed. Run again to write it."
+              : "No explanation has been written yet."}
         </p>
       </section>
 

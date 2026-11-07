@@ -60,6 +60,9 @@ class RunRequest(ApiModel):
         description="Overrides of step params, by step name and then param name.",
         examples=[{"check_farm_data": {"r1_yield_max_ratio_to_median": 4.0}}],
     )
+    run_fix_proposer: bool = Field(
+        default=False, description="Whether the fix proposer looks for errors the rules miss."
+    )
 
 
 class Run(ApiModel):
@@ -421,11 +424,17 @@ class ActionOptionDecisionRequest(ApiModel):
 
 
 class ReportParagraph(ApiModel):
+    section: str = Field(
+        description="One of summary, risk, drivers, options, insights or method, in outline order."
+    )
     heading: str | None
     text: str = Field(
         description="Numbers appear only as tokens, {{metric:met_...}} or {{insight:ins_...}}."
     )
-    call_id: str = Field(description="The logged LLM call that wrote this paragraph.")
+    call_id: str | None = Field(
+        description="The logged LLM call that wrote this paragraph. Empty for text the app builds "
+        "from the run's records, such as the file checksums."
+    )
 
 
 class Insight(ApiModel):
@@ -437,8 +446,10 @@ class Insight(ApiModel):
 
 
 class Report(ApiModel):
+    report_id: str
     result_set_id: str
-    status: ResultSetStatus
+    version: int = Field(description="The draft's number, counting from 1 for each result set.")
+    status: ResultSetStatus = Field(description="The status of the result set the report is for.")
     run_id: str = Field(description="The report run that wrote the draft.")
     drafted_at: datetime
     published_at: datetime | None

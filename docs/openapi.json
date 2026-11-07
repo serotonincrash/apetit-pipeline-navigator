@@ -816,6 +816,16 @@
               }
             }
           },
+          "403": {
+            "description": "This decision belongs to the other specialist.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No record with that id.",
             "content": {
@@ -899,6 +909,16 @@
           },
           "400": {
             "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "This decision belongs to the other specialist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1016,6 +1036,16 @@
           },
           "400": {
             "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "This decision belongs to the other specialist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1459,16 +1489,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1550,8 +1570,8 @@
               }
             }
           },
-          "404": {
-            "description": "No record with that id.",
+          "403": {
+            "description": "This decision belongs to the other specialist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1560,8 +1580,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
+          "404": {
+            "description": "No record with that id.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1619,16 +1639,6 @@
           },
           "404": {
             "description": "No record with that id.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1718,8 +1728,8 @@
               }
             }
           },
-          "404": {
-            "description": "No record with that id.",
+          "403": {
+            "description": "This decision belongs to the other specialist.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1728,8 +1738,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
+          "404": {
+            "description": "No record with that id.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1809,8 +1819,8 @@
               }
             }
           },
-          "404": {
-            "description": "No record with that id.",
+          "403": {
+            "description": "The persona cannot do this.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1819,8 +1829,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
+          "404": {
+            "description": "No record with that id.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1872,16 +1882,6 @@
           },
           "404": {
             "description": "No record with that id.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1971,8 +1971,8 @@
               }
             }
           },
-          "404": {
-            "description": "No record with that id.",
+          "403": {
+            "description": "The persona cannot do this.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1981,8 +1981,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
+          "404": {
+            "description": "No record with that id.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2010,7 +2010,7 @@
           "report"
         ],
         "summary": "Export Report",
-        "description": "The published report as PDF or Markdown.",
+        "description": "The published report as Markdown, with every token replaced by its number and unit.",
         "operationId": "exportReport",
         "parameters": [
           {
@@ -2021,42 +2021,17 @@
               "type": "string",
               "title": "Result Set Id"
             }
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "pdf",
-                "markdown"
-              ],
-              "type": "string",
-              "default": "pdf",
-              "title": "Format"
-            }
           }
         ],
         "responses": {
           "200": {
-            "description": "The published report as a file.",
+            "description": "The published report as Markdown.",
             "content": {
-              "application/pdf": {},
               "text/markdown": {}
             }
           },
           "404": {
             "description": "No record with that id.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3620,9 +3595,18 @@
       },
       "Report": {
         "properties": {
+          "report_id": {
+            "type": "string",
+            "title": "Report Id"
+          },
           "result_set_id": {
             "type": "string",
             "title": "Result Set Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "description": "The draft's number, counting from 1 for each result set."
           },
           "status": {
             "type": "string",
@@ -3633,7 +3617,8 @@
               "published",
               "superseded"
             ],
-            "title": "Status"
+            "title": "Status",
+            "description": "The status of the result set the report is for."
           },
           "run_id": {
             "type": "string",
@@ -3683,7 +3668,9 @@
         },
         "type": "object",
         "required": [
+          "report_id",
           "result_set_id",
+          "version",
           "status",
           "run_id",
           "drafted_at",
@@ -3696,6 +3683,11 @@
       },
       "ReportParagraph": {
         "properties": {
+          "section": {
+            "type": "string",
+            "title": "Section",
+            "description": "One of summary, risk, drivers, options, insights or method, in outline order."
+          },
           "heading": {
             "anyOf": [
               {
@@ -3713,13 +3705,21 @@
             "description": "Numbers appear only as tokens, {{metric:met_...}} or {{insight:ins_...}}."
           },
           "call_id": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Call Id",
-            "description": "The logged LLM call that wrote this paragraph."
+            "description": "The logged LLM call that wrote this paragraph. Empty for text the app builds from the run's records, such as the file checksums."
           }
         },
         "type": "object",
         "required": [
+          "section",
           "heading",
           "text",
           "call_id"
@@ -4479,6 +4479,12 @@
                 }
               }
             ]
+          },
+          "run_fix_proposer": {
+            "type": "boolean",
+            "title": "Run Fix Proposer",
+            "description": "Whether the fix proposer looks for errors the rules miss.",
+            "default": false
           }
         },
         "type": "object",

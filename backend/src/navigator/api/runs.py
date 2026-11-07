@@ -85,7 +85,10 @@ def create_run(
                 f"Step {step_name} has no param {', '.join(unknown)}.",
             )
 
-    params: dict[str, Any] = {"step_params": request.step_params}
+    step_params = {name: dict(overrides) for name, overrides in request.step_params.items()}
+    if request.run_fix_proposer:
+        step_params.setdefault("propose_fixes", {})["enabled"] = True
+    params: dict[str, Any] = {"step_params": step_params}
     run = m.Run(
         run_id=ids.new_id("run"),
         recipe_id=recipe.recipe_id,

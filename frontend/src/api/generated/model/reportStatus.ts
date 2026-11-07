@@ -5,6 +5,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+/**
+ * The status of the result set the report is for.
+ */
 export type ReportStatus = typeof ReportStatus[keyof typeof ReportStatus];
 
 

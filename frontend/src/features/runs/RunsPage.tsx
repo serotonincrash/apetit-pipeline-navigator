@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { getListRunsQueryKey, useCreateRun, useListRuns } from "@/api/generated/client";
 import type { Run } from "@/api/generated/model";
 import { requireName } from "@/api/persona";
@@ -42,6 +43,7 @@ export function RunsPage() {
       },
     },
   );
+  const [fixProposer, setFixProposer] = useState(false);
   const start = useCreateRun({
     mutation: {
       onSuccess: (run) => {
@@ -55,15 +57,29 @@ export function RunsPage() {
     <main className="mx-auto max-w-5xl px-6 py-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-lg font-semibold">Runs</h1>
-        <Button
-          variant="primary"
-          disabled={start.isPending}
-          onClick={() => {
-            if (requireName()) start.mutate({ data: { recipe_id: "farm_climate_risk" } });
-          }}
-        >
-          Start a run
-        </Button>
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={fixProposer}
+              onChange={(event) => setFixProposer(event.target.checked)}
+            />
+            Also look for problems the data checks miss
+          </label>
+          <Button
+            variant="primary"
+            disabled={start.isPending}
+            onClick={() => {
+              if (requireName()) {
+                start.mutate({
+                  data: { recipe_id: "farm_climate_risk", run_fix_proposer: fixProposer },
+                });
+              }
+            }}
+          >
+            Start a run
+          </Button>
+        </div>
       </div>
       {start.isError ? (
         <ErrorState title="The run did not start." message={messageOf(start.error)} />

@@ -47,6 +47,9 @@ PROPOSAL_COLUMNS = [
     "proposer",
 ]
 
+# Columns of StepResult.explanations: the text for one proposal, or None when the explainer failed.
+EXPLANATION_COLUMNS = ["proposal_key", "explanation"]
+
 # Columns of StepResult.decisions: approvals a step makes under a written rule policy.
 DECISION_COLUMNS = ["proposal_key", "decision", "reviewer", "comment"]
 
@@ -151,6 +154,7 @@ class StepResult:
     metrics: pd.DataFrame | None = None
     insights: pd.DataFrame | None = None
     action_options: pd.DataFrame | None = None
+    explanations: pd.DataFrame | None = None
     assumptions: list[AssumptionUse] = field(default_factory=list[AssumptionUse])
 
 

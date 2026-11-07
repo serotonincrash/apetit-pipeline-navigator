@@ -140,7 +140,7 @@ export function DataReviewPage({ search }: { search: ReviewSearch }) {
           {search.rule && canDecide ? (
             <BulkDecision key={search.rule} ruleId={search.rule} openFixIds={openFixIds} />
           ) : null}
-          {newDecisions > 0 ? <RunAgainBar decisions={newDecisions} /> : null}
+          {newDecisions > 0 ? <RunAgainBar decisions={newDecisions} runId={runId} /> : null}
           <p className="text-xs text-muted-foreground">
             Keys: j and k or the arrow keys move
             {canDecide ? ", a approves, e edits, r rejects" : ""}.

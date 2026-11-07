@@ -16,7 +16,6 @@ import type {
   Decision,
   ErrorMessage,
   ExportArtifactParams,
-  ExportReportParams,
   HTTPValidationError,
   Health,
   ListActionsParams,
@@ -698,6 +697,11 @@ export type decideProposalsResponse400 = {
   status: 400
 }
 
+export type decideProposalsResponse403 = {
+  data: ErrorMessage
+  status: 403
+}
+
 export type decideProposalsResponse404 = {
   data: ErrorMessage
   status: 404
@@ -711,7 +715,7 @@ export type decideProposalsResponse422 = {
 export type decideProposalsResponseSuccess = (decideProposalsResponse201) & {
   headers: Headers;
 };
-export type decideProposalsResponseError = (decideProposalsResponse400 | decideProposalsResponse404 | decideProposalsResponse422) & {
+export type decideProposalsResponseError = (decideProposalsResponse400 | decideProposalsResponse403 | decideProposalsResponse404 | decideProposalsResponse422) & {
   headers: Headers;
 };
 
@@ -773,6 +777,11 @@ export type decideProposalResponse400 = {
   status: 400
 }
 
+export type decideProposalResponse403 = {
+  data: ErrorMessage
+  status: 403
+}
+
 export type decideProposalResponse404 = {
   data: ErrorMessage
   status: 404
@@ -786,7 +795,7 @@ export type decideProposalResponse422 = {
 export type decideProposalResponseSuccess = (decideProposalResponse201) & {
   headers: Headers;
 };
-export type decideProposalResponseError = (decideProposalResponse400 | decideProposalResponse404 | decideProposalResponse422) & {
+export type decideProposalResponseError = (decideProposalResponse400 | decideProposalResponse403 | decideProposalResponse404 | decideProposalResponse422) & {
   headers: Headers;
 };
 
@@ -893,6 +902,11 @@ export type decideRuleResponse400 = {
   status: 400
 }
 
+export type decideRuleResponse403 = {
+  data: ErrorMessage
+  status: 403
+}
+
 export type decideRuleResponse404 = {
   data: ErrorMessage
   status: 404
@@ -906,7 +920,7 @@ export type decideRuleResponse422 = {
 export type decideRuleResponseSuccess = (decideRuleResponse201) & {
   headers: Headers;
 };
-export type decideRuleResponseError = (decideRuleResponse400 | decideRuleResponse404 | decideRuleResponse422) & {
+export type decideRuleResponseError = (decideRuleResponse400 | decideRuleResponse403 | decideRuleResponse404 | decideRuleResponse422) & {
   headers: Headers;
 };
 
@@ -1211,15 +1225,10 @@ export type listActionsResponse422 = {
   status: 422
 }
 
-export type listActionsResponse501 = {
-  data: ErrorMessage
-  status: 501
-}
-
 export type listActionsResponseSuccess = (listActionsResponse200) & {
   headers: Headers;
 };
-export type listActionsResponseError = (listActionsResponse422 | listActionsResponse501) & {
+export type listActionsResponseError = (listActionsResponse422) & {
   headers: Headers;
 };
 
@@ -1274,6 +1283,11 @@ export type decideActionResponse400 = {
   status: 400
 }
 
+export type decideActionResponse403 = {
+  data: ErrorMessage
+  status: 403
+}
+
 export type decideActionResponse404 = {
   data: ErrorMessage
   status: 404
@@ -1284,15 +1298,10 @@ export type decideActionResponse422 = {
   status: 422
 }
 
-export type decideActionResponse501 = {
-  data: ErrorMessage
-  status: 501
-}
-
 export type decideActionResponseSuccess = (decideActionResponse201) & {
   headers: Headers;
 };
-export type decideActionResponseError = (decideActionResponse400 | decideActionResponse404 | decideActionResponse422 | decideActionResponse501) & {
+export type decideActionResponseError = (decideActionResponse400 | decideActionResponse403 | decideActionResponse404 | decideActionResponse422) & {
   headers: Headers;
 };
 
@@ -1360,15 +1369,10 @@ export type listActionOptionsResponse422 = {
   status: 422
 }
 
-export type listActionOptionsResponse501 = {
-  data: ErrorMessage
-  status: 501
-}
-
 export type listActionOptionsResponseSuccess = (listActionOptionsResponse200) & {
   headers: Headers;
 };
-export type listActionOptionsResponseError = (listActionOptionsResponse404 | listActionOptionsResponse422 | listActionOptionsResponse501) & {
+export type listActionOptionsResponseError = (listActionOptionsResponse404 | listActionOptionsResponse422) & {
   headers: Headers;
 };
 
@@ -1416,6 +1420,11 @@ export type decideActionOptionResponse400 = {
   status: 400
 }
 
+export type decideActionOptionResponse403 = {
+  data: ErrorMessage
+  status: 403
+}
+
 export type decideActionOptionResponse404 = {
   data: ErrorMessage
   status: 404
@@ -1426,15 +1435,10 @@ export type decideActionOptionResponse422 = {
   status: 422
 }
 
-export type decideActionOptionResponse501 = {
-  data: ErrorMessage
-  status: 501
-}
-
 export type decideActionOptionResponseSuccess = (decideActionOptionResponse201) & {
   headers: Headers;
 };
-export type decideActionOptionResponseError = (decideActionOptionResponse400 | decideActionOptionResponse404 | decideActionOptionResponse422 | decideActionOptionResponse501) & {
+export type decideActionOptionResponseError = (decideActionOptionResponse400 | decideActionOptionResponse403 | decideActionOptionResponse404 | decideActionOptionResponse422) & {
   headers: Headers;
 };
 
@@ -1497,6 +1501,11 @@ export type requestReportResponse400 = {
   status: 400
 }
 
+export type requestReportResponse403 = {
+  data: ErrorMessage
+  status: 403
+}
+
 export type requestReportResponse404 = {
   data: ErrorMessage
   status: 404
@@ -1507,15 +1516,10 @@ export type requestReportResponse422 = {
   status: 422
 }
 
-export type requestReportResponse501 = {
-  data: ErrorMessage
-  status: 501
-}
-
 export type requestReportResponseSuccess = (requestReportResponse202) & {
   headers: Headers;
 };
-export type requestReportResponseError = (requestReportResponse400 | requestReportResponse404 | requestReportResponse422 | requestReportResponse501) & {
+export type requestReportResponseError = (requestReportResponse400 | requestReportResponse403 | requestReportResponse404 | requestReportResponse422) & {
   headers: Headers;
 };
 
@@ -1568,15 +1572,10 @@ export type getReportResponse422 = {
   status: 422
 }
 
-export type getReportResponse501 = {
-  data: ErrorMessage
-  status: 501
-}
-
 export type getReportResponseSuccess = (getReportResponse200) & {
   headers: Headers;
 };
-export type getReportResponseError = (getReportResponse404 | getReportResponse422 | getReportResponse501) & {
+export type getReportResponseError = (getReportResponse404 | getReportResponse422) & {
   headers: Headers;
 };
 
@@ -1624,6 +1623,11 @@ export type decideResultSetResponse400 = {
   status: 400
 }
 
+export type decideResultSetResponse403 = {
+  data: ErrorMessage
+  status: 403
+}
+
 export type decideResultSetResponse404 = {
   data: ErrorMessage
   status: 404
@@ -1634,15 +1638,10 @@ export type decideResultSetResponse422 = {
   status: 422
 }
 
-export type decideResultSetResponse501 = {
-  data: ErrorMessage
-  status: 501
-}
-
 export type decideResultSetResponseSuccess = (decideResultSetResponse201) & {
   headers: Headers;
 };
-export type decideResultSetResponseError = (decideResultSetResponse400 | decideResultSetResponse404 | decideResultSetResponse422 | decideResultSetResponse501) & {
+export type decideResultSetResponseError = (decideResultSetResponse400 | decideResultSetResponse403 | decideResultSetResponse404 | decideResultSetResponse422) & {
   headers: Headers;
 };
 
@@ -1695,11 +1694,6 @@ const res = await fetch(getDecideResultSetUrl(resultSetId),
 
 
 
-export type exportReportResponse200 = {
-  data: Blob
-  status: 200
-}
-
 export type exportReportResponse404 = {
   data: ErrorMessage
   status: 404
@@ -1710,44 +1704,28 @@ export type exportReportResponse422 = {
   status: 422
 }
 
-export type exportReportResponse501 = {
-  data: ErrorMessage
-  status: 501
-}
-
-export type exportReportResponseSuccess = (exportReportResponse200) & {
-  headers: Headers;
-};
-export type exportReportResponseError = (exportReportResponse404 | exportReportResponse422 | exportReportResponse501) & {
+;
+export type exportReportResponseError = (exportReportResponse404 | exportReportResponse422) & {
   headers: Headers;
 };
 
-export type exportReportResponse = (exportReportResponseSuccess | exportReportResponseError)
+export type exportReportResponse = (exportReportResponseError)
 
-export const getExportReportUrl = (resultSetId: string,
-    params?: ExportReportParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getExportReportUrl = (resultSetId: string,) => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : String(value))
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/result-sets/${resultSetId}/report/export?${stringifiedParams}` : `/api/result-sets/${resultSetId}/report/export`
+  return `/api/result-sets/${resultSetId}/report/export`
 }
 
 /**
- * The published report as PDF or Markdown.
+ * The published report as Markdown, with every token replaced by its number and unit.
  * @summary Export Report
  */
-export const exportReport = async (resultSetId: string,
-    params?: ExportReportParams, options?: RequestInit): Promise<exportReportResponse> => {
+export const exportReport = async (resultSetId: string, options?: RequestInit): Promise<exportReportResponse> => {
 
-  const res = await fetch(getExportReportUrl(resultSetId,params),
+  const res = await fetch(getExportReportUrl(resultSetId),
   {
     ...options,
     method: 'GET'
@@ -1757,7 +1735,8 @@ export const exportReport = async (resultSetId: string,
 )
 
 
-  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
-  const data: exportReportResponse['data'] = body as exportReportResponse['data']
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: exportReportResponse['data'] = body ? JSON.parse(body) : {}
   return { data, status: res.status, headers: res.headers } as exportReportResponse
 }
