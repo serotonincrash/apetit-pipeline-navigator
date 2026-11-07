@@ -18,7 +18,7 @@ def connect() -> duckdb.DuckDBPyConnection:
             TYPE s3, KEY_ID ?, SECRET ?, ENDPOINT ?, USE_SSL ?, URL_STYLE 'path'
         )
         """,
-        [s.minio_root_user, s.minio_root_password, s.s3_endpoint, s.s3_secure],
+        [s.s3_access_key, s.s3_secret_key, s.s3_endpoint, s.s3_secure],
     )
     return con
 

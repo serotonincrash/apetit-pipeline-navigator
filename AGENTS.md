@@ -18,7 +18,7 @@ the source of truth for what to build. Terms come from `docs/glossary.md`.
 From `backend/`:
 
 - `uv run pytest -m golden` runs the golden-number tests (no services needed).
-- `uv run pytest -m api` runs the API tests (needs the dev Postgres and MinIO).
+- `uv run pytest -m api` runs the API tests (needs the dev Postgres and SeaweedFS).
 - `uv run ruff check . && uv run ruff format --check . && uv run pyright`
 - `uv run alembic upgrade head`
 - `uv run uvicorn navigator.api.main:app --port $API_PORT` and `uv run python -m navigator.worker.main`
@@ -147,7 +147,7 @@ Each agent returns structured JSON, and its free-text fields follow the rules ab
 - Sentence case for every label, heading and button.
 - Empty states say what is missing and what to do: "No proposals yet. Start a run to check the farm data."
 - Errors say what happened and what the person can do next. No stack traces; the data specialist gets the run id to copy.
-- Keep implementation details out, in the copy and in annotations, since the app shows both. That means no provider or model names ("Gemini", "Powered by"), no service names (Postgres, MinIO, DuckDB), no internal terms (artifact, step run, payload, SSE) and no notes about the demo setup or what could change later ("demo mode", "can be switched to Azure"). Those belong in the docs.
+- Keep implementation details out, in the copy and in annotations, since the app shows both. That means no provider or model names ("Gemini", "Powered by"), no service names (Postgres, SeaweedFS, DuckDB), no internal terms (artifact, step run, payload, SSE) and no notes about the demo setup or what could change later ("demo mode", "can be switched to Azure"). Those belong in the docs.
 - Text an agent wrote is labelled in plain words, such as "Suggested by a data check" or "Suggested by the assistant". The model that wrote it is kept in the call log, not on screen.
 - No sparkle icons or magic-wand buttons for AI features, and no "AI-powered", "smart" or "intelligent" labels.
 - No marketing voice in a working tool: "Unlock insights", "Welcome back!", "Your dashboard is ready".

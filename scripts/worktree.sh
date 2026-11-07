@@ -25,12 +25,12 @@ up)
   cat > "$tree/backend/.env" <<EOF
 DATABASE_URL=postgresql+psycopg://navigator:navigator@localhost:5432/$db
 TEST_DATABASE_URL=postgresql+psycopg://navigator:navigator@localhost:5432/${db}_test
-S3_ENDPOINT=localhost:9000
+S3_ENDPOINT=localhost:8333
 S3_BUCKET=$bucket
 TEST_S3_BUCKET=$bucket-test
 S3_SEED_BUCKET=navigator-seed
-MINIO_ROOT_USER=navigator
-MINIO_ROOT_PASSWORD=navigator-dev
+S3_ACCESS_KEY=navigator
+S3_SECRET_KEY=navigator-dev
 PACKAGE_DIR=$ROOT/APETIT_CLIMATE_NATURE_NAVIGATOR_2026
 API_PORT=$((8100 + slot))
 WEB_PORT=$((5200 + slot))

@@ -74,20 +74,20 @@ Raw files are checked, a person approves the fixes, and the cleaned tables feed 
 
 ## Backend architecture
 
-Five services behind a reverse proxy, plus a sandbox: a worker runs every recipe step, the API only queues runs and serves results, Postgres holds the platform's state and run queue, MinIO holds the data, the web service serves the app, and the sandbox runs approved rule code written by an agent. These decisions were taken by the team on 7 November.
+Five services behind a reverse proxy, plus a sandbox: a worker runs every recipe step, the API only queues runs and serves results, Postgres holds the platform's state and run queue, SeaweedFS holds the data, the web service serves the app, and the sandbox runs approved rule code written by an agent. These decisions were taken by the team on 7 November.
 
 &#91;embedded content: backend containers · 4 services, 1 external API\]
 
-The web app talks only to the API. The API writes runs into the Postgres queue and records decisions; the worker claims runs from the same queue, writes results back, stores artifacts in MinIO and calls Gemini for the agent steps. The API never runs a step itself: it reads results straight from MinIO with DuckDB.
+The web app talks only to the API. The API writes runs into the Postgres queue and records decisions; the worker claims runs from the same queue, writes results back, stores artifacts in SeaweedFS and calls Gemini for the agent steps. The API never runs a step itself: it reads results straight from SeaweedFS with DuckDB.
 
 | Area | Decision |
 | --- | --- |
 | Backend | Python with FastAPI. The API and the worker import the analysis code directly; nothing runs as a subprocess. |
-| Containers | Docker Compose: API and worker (same image, different command), Postgres, MinIO, web, a Caddy reverse proxy in front, a sandbox for rule code written by an agent, and a one-off seed job. |
+| Containers | Docker Compose: API and worker (same image, different command), Postgres, SeaweedFS, web, a Caddy reverse proxy in front, a sandbox for rule code written by an agent, and a one-off seed job. |
 | Platform tables | Postgres, through SQLAlchemy with Alembic migrations. |
 | Run queue | The worker polls the `run` table and claims a run with row locking (`FOR UPDATE SKIP LOCKED`). One run at a time. |
-| Artifacts | Parquet files in MinIO, through the S3 API. |
-| Reading results | The API queries the Parquet artifacts in MinIO with DuckDB on each request, including drill-down to source rows. |
+| Artifacts | Parquet files in SeaweedFS, through the S3 API. SeaweedFS replaced MinIO, whose official image is no longer public on Docker Hub; the code only speaks S3, so any S3 store fits. |
+| Reading results | The API queries the Parquet artifacts in SeaweedFS with DuckDB on each request, including drill-down to source rows. |
 | Lineage | Artifact plus filter: each metric records its source artifacts and, for each, a filter of column-value pairs that selects its contributing rows (see Lineage filter under Data model). |
 | Recipes | Pure Python. The notebook logic is refactored into step functions. A `@step` decorator and named `section` blocks inside steps carry plain-language annotations, which the app shows next to each run. |
 | Reusing work | Normal runs rerun every step. A what-if run starts from an approved run's artifacts and reruns only the steps after its override. |
@@ -101,7 +101,7 @@ The web app talks only to the API. The API writes runs into the Postgres queue a
 | Configuration | A git-ignored .env file read by Docker Compose and loaded into a typed settings object with pydantic-settings; a committed .env.example lists every variable. |
 | Logging | Structured JSON logs to stdout from the API and worker. Run, step and section events are also stored in Postgres and streamed to the app. |
 | Ids | Prefixed by record type, followed by a time-sortable unique id: run\_…, step\_…, art\_…, prop\_…, dec\_…, met\_…, act\_…, opt\_…, rs\_…, asm\_…, ins\_…, rep\_…, call\_… (the full list is in ids.py) |
-| Seeding data | A one-off seed job at startup uploads the unzipped challenge package to MinIO and records each file with its checksum. Runs read from MinIO only. The seed job also loads the action catalogue and records a Catalogue policy approval for each catalogue action. |
+| Seeding data | A one-off seed job at startup uploads the unzipped challenge package to SeaweedFS and records each file with its checksum. Runs read from SeaweedFS only. The seed job also loads the action catalogue and records a Catalogue policy approval for each catalogue action. |
 | Demo hosting | The same Compose stack on a Vultr VM, with Caddy providing HTTPS automatically and one URL for web and API. |
 | Demo access | One shared username and password at the Caddy proxy, so the public URL can't be used to start runs on the team's Gemini key. |
 | Production LLM | Apetit's choice. Any provider plugs in behind the wrapper if it offers structured JSON output, per-call logging and data-handling terms Apetit accepts. |
@@ -120,7 +120,7 @@ climate-nature-navigator/
 │   │   ├── api/                  FastAPI app, one router per screen, SSE stream
 │   │   ├── worker/               queue loop: claim a run, execute its recipe
 │   │   ├── db/                   SQLAlchemy models for the platform tables
-│   │   ├── storage/              MinIO client; DuckDB queries over Parquet
+│   │   ├── storage/              S3 client; DuckDB queries over Parquet
 │   │   ├── recipes/              recipe definitions, step registry, @step and section
 │   │   ├── steps/                step functions refactored from the notebooks
 │   │   ├── analysis/             cropweather, yieldcv, yieldmodel, climateproj, riskprice, actions
@@ -128,7 +128,7 @@ climate-nature-navigator/
 │   │   └── llm/                  Gemini wrapper, JSON validation, call log
 │   └── tests/
 │       ├── golden/               each step reproduces the notebooks' results
-│       └── api/                  main API flows against test Postgres and MinIO
+│       └── api/                  main API flows against test Postgres and SeaweedFS
 ├── frontend/
 │   ├── package.json, biome.json
 │   └── src/
@@ -156,7 +156,7 @@ The API queues a run, the worker executes it, and its progress streams to the ap
 
 | Run kind | Starts from | Steps executed |
 | --- | --- | --- |
-| Full | The raw package in MinIO and the fixes approved so far | Every step of the recipe |
+| Full | The raw package in SeaweedFS and the fixes approved so far | Every step of the recipe |
 | What-if | An approved run and one approved action spec | Only the steps from the action's override point; earlier steps reuse the parent run's artifacts |
 | Report | A succeeded run's result set | Only the report drafter. Each report run writes a new numbered draft to the report table; drafts are never overwritten |
 
@@ -249,8 +249,8 @@ The same Docker Compose file runs on a developer's laptop and on the Vultr VM. O
 | `worker` | Backend image | The run queue loop | None |
 | `sandbox` | Backend image | Runs approved rule code written by an agent, with no network, a read-only file system, and CPU, memory and time limits | None |
 | `postgres` | Postgres | Platform tables, run queue, run events | Database volume |
-| `minio` | MinIO | Raw package, artifacts | Object volume |
-| `seed` | Backend image | One-off at startup: runs the Alembic migrations, then uploads the challenge package to MinIO with checksums and loads the action catalogue; exits | None |
+| `seaweedfs` | SeaweedFS (chrislusf/seaweedfs, S3 on port 8333) | Raw package, artifacts | Object volume |
+| `seed` | Backend image | One-off at startup: runs the Alembic migrations, then uploads the challenge package to SeaweedFS with checksums and loads the action catalogue; exits | None |
 
 Environment variables, listed in `infra/.env.example`:
 
@@ -258,7 +258,7 @@ Environment variables, listed in `infra/.env.example`:
 | --- | --- |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | The AI Studio key and the model the agents use |
 | `DATABASE_URL`, `POSTGRES_PASSWORD` | Postgres connection and password |
-| `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD`, `S3_ENDPOINT`, `S3_BUCKET` | MinIO credentials and bucket |
+| `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `S3_BUCKET` | S3 credentials, endpoint and bucket |
 | `PACKAGE_DIR` | Where the seed job finds the unzipped challenge package |
 | `DOMAIN` | The domain pointed at the VM, for Caddy's certificate |
 | `BASIC_AUTH_USER`, `BASIC_AUTH_HASH` | The shared demo login (the password stored as a hash) |
@@ -271,13 +271,13 @@ On the Vultr VM:
 3. Run `docker compose up -d`. The seed job loads the data; Caddy fetches the certificate.
 4. Queue one full run of each recipe, review and publish its results, so judges find a complete example waiting.
 5. After the judges have used the app, run `scripts/reset_demo.sh`. It empties the database and the bucket, reseeds the package, and queues and approves one full run again, so the VM is back in its prepared state.
-6. Size the VM after a test run there; the MinIO console stays internal.
+6. Size the VM after a test run there; SeaweedFS stays internal.
 
 ## Local development
 
-Several coding agents work on one computer at once, each in its own git worktree on its own branch. They share one Postgres and one MinIO per computer, and each worktree gets its own database and bucket inside them.
+Several coding agents work on one computer at once, each in its own git worktree on its own branch. They share one Postgres and one SeaweedFS per computer, and each worktree gets its own database and bucket inside them.
 
-The `dev` profile of the Compose file starts only Postgres and MinIO. In each worktree the API, the worker and the Vite dev server run on the host, with `uv run` and `npm run dev`, against that worktree's database and bucket.
+The `dev` profile of the Compose file starts only Postgres and SeaweedFS. In each worktree the API, the worker and the Vite dev server run on the host, with `uv run` and `npm run dev`, against that worktree's database and bucket.
 
 `scripts/worktree.sh up <name> <slot>` sets up a worktree in one command:
 
@@ -294,7 +294,7 @@ Ports per slot, so worktrees never collide:
 | Service | Port |
 | --- | --- |
 | Postgres (shared) | 5432 |
-| MinIO API and console (shared) | 9000, 9001 |
+| SeaweedFS S3 API (shared) | 8333 |
 | API in slot n | 8100 + n |
 | Vite dev server in slot n | 5200 + n |
 
@@ -324,7 +324,7 @@ Golden-number tests compare each refactored step with the notebooks' results: fi
 | Price risk | The expected costs in `climate_risk_eur.csv`, to the cent |
 | Compare actions | The cost removed per action in `action_options.csv` |
 
-API tests run against the worktree's own test database and bucket in the shared Postgres and MinIO, emptied at the start of each test session, with the LLM replaced by a fake model that returns fixed JSON:
+API tests run against the worktree's own test database and bucket in the shared Postgres and SeaweedFS, emptied at the start of each test session, with the LLM replaced by a fake model that returns fixed JSON:
 
 1. Queue a full run, follow its event stream, and see it succeed with a draft result set.
 2. Approve a proposal, run again, and see the cleaned table change.
@@ -406,7 +406,7 @@ Each agent returns structured JSON, and its free-text fields follow the rules ab
 - Sentence case for every label, heading and button.
 - Empty states say what is missing and what to do: "No proposals yet. Start a run to check the farm data."
 - Errors say what happened and what the person can do next. No stack traces; the data specialist gets the run id to copy.
-- Keep implementation details out, in the copy and in annotations, since the app shows both. That means no provider or model names ("Gemini", "Powered by"), no service names (Postgres, MinIO, DuckDB), no internal terms (artifact, step run, payload, SSE) and no notes about the demo setup or what could change later ("demo mode", "can be switched to Azure"). Those belong in the docs.
+- Keep implementation details out, in the copy and in annotations, since the app shows both. That means no provider or model names ("Gemini", "Powered by"), no service names (Postgres, SeaweedFS, DuckDB), no internal terms (artifact, step run, payload, SSE) and no notes about the demo setup or what could change later ("demo mode", "can be switched to Azure"). Those belong in the docs.
 - Text an agent wrote is labelled in plain words, such as "Suggested by a data check" or "Suggested by the assistant". The model that wrote it is kept in the call log, not on screen.
 - No sparkle icons or magic-wand buttons for AI features, and no "AI-powered", "smart" or "intelligent" labels.
 - No marketing voice in a working tool: "Unlock insights", "Welcome back!", "Your dashboard is ready".
@@ -469,7 +469,7 @@ Generated interfaces tend to look alike: every page a grid of identical cards wi
 
 ## Data model
 
-Feventeen tables hold everything the platform knows: what went in, what each step did, what people decided and what came out. Data tables themselves (raw, cleaned, features) are Parquet files registered as artifacts; these tables describe them. They live in Postgres, and the artifacts are Parquet files in MinIO (see Backend architecture). In Fabric, the artifacts become Delta tables in the Lakehouse.
+Feventeen tables hold everything the platform knows: what went in, what each step did, what people decided and what came out. Data tables themselves (raw, cleaned, features) are Parquet files registered as artifacts; these tables describe them. They live in Postgres, and the artifacts are Parquet files in SeaweedFS (see Backend architecture). In Fabric, the artifacts become Delta tables in the Lakehouse.
 
 | Table | One row is | Key columns | Written by |
 | --- | --- | --- | --- |
@@ -681,7 +681,7 @@ Five workstreams, one person each, build in parallel against four interfaces: th
 
 | Workstream | Builds | Suggested owner | Needs from others | Done when |
 | --- | --- | --- | --- | --- |
-| Core and lineage | FastAPI backend and API contract, Postgres schema and migrations, the queue worker and runner, the MinIO artifact store, the Docker Compose stack and the seed job, replay of raw plus approved proposals, what-if runs with action overrides; steps 1–6 refactored from the notebooks (milestone 1) | Strongest Python and data person | Nothing | A run of steps 1–6 shows in the Runs screen with every artifact registered |
+| Core and lineage | FastAPI backend and API contract, Postgres schema and migrations, the queue worker and runner, the SeaweedFS artifact store, the Docker Compose stack and the seed job, replay of raw plus approved proposals, what-if runs with action overrides; steps 1–6 refactored from the notebooks (milestone 1) | Strongest Python and data person | Nothing | A run of steps 1–6 shows in the Runs screen with every artifact registered |
 | Risk module | Steps 7–10: yield model, scenario ensemble, pricing, actions | Whoever knows the notebooks best | Step contract; features from step 6 | Euros at risk per crop, region and scenario, with lineage, for all three scenarios |
 | Data agents | Fix proposer, the sandbox service, review explainer with evidence tokens, the LLM wrapper with its retries, prose check and fake-model fallback; recipe 2 checks | LLM builder 1 | Proposal schema; raw artifacts | Agent proposals appear in the Data review queue with reproducible evidence |
 | Report agent and app | Report drafter, action proposer, citation tokens; the six screens as a React web app, with the interactive report page, built against mock API data until the backend is ready | LLM builder 2 | Metric and decision tables | Approving a report publishes it, with every number linked |

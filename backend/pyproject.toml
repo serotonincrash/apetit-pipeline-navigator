@@ -74,5 +74,5 @@ reportMissingTypeStubs = false
 testpaths = ["tests"]
 markers = [
     "golden: reproduces the notebooks' results",
-    "api: needs Postgres and MinIO",
+    "api: needs Postgres and the S3 store",
 ]

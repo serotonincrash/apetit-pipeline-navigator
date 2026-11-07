@@ -10,12 +10,12 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://navigator:navigator@localhost:5432/navigator"
 
-    s3_endpoint: str = "localhost:9000"
+    s3_endpoint: str = "localhost:8333"
     s3_secure: bool = False
     s3_bucket: str = "navigator"
     s3_seed_bucket: str = "navigator-seed"
-    minio_root_user: str = "navigator"
-    minio_root_password: str = "navigator-dev"
+    s3_access_key: str = "navigator"
+    s3_secret_key: str = "navigator-dev"
 
     package_dir: str = "../APETIT_CLIMATE_NATURE_NAVIGATOR_2026"
 

@@ -1,4 +1,4 @@
-"""Object storage over the S3 API (MinIO locally and on the VM): package files and artifacts.
+"""Object storage over the S3 API (SeaweedFS locally and on the VM): package files and artifacts.
 
 Artifacts are Parquet files under `runs/<run_id>/<artifact_id>.parquet`. Raw package files
 keep their package path under `package/`.
@@ -19,8 +19,8 @@ def get_client() -> Minio:
     s = get_settings()
     return Minio(
         s.s3_endpoint,
-        access_key=s.minio_root_user,
-        secret_key=s.minio_root_password,
+        access_key=s.s3_access_key,
+        secret_key=s.s3_secret_key,
         secure=s.s3_secure,
     )
 
