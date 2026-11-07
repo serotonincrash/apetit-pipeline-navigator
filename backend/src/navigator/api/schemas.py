@@ -328,11 +328,14 @@ class Metric(ApiModel):
     name: str
     unit: str
     value: float
+    low: float | None
+    high: float | None
     region: str | None
     crop: str | None
     scenario: str | None
     ngfs_scenario: str | None
     period: str | None
+    action_id: str | None
     assumption_ids: list[str]
 
 
@@ -346,6 +349,7 @@ class Assumption(ApiModel):
     run_id: str
     step: str
     name: str
+    label: str
     value: Any
     unit: str
     source: str

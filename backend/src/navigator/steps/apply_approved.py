@@ -9,6 +9,7 @@ import pandas as pd
 from navigator.recipes.core import (
     PROPOSALS_INPUT,
     Artifact,
+    AssumptionUse,
     Params,
     RunContext,
     StepResult,
@@ -141,5 +142,14 @@ def apply_approved(ctx: RunContext, inputs: dict[str, Artifact], params: Params)
             Artifact(name="farm_survey_clean", layer="clean", frame=survey_clean),
             Artifact(name="farm_registry_clean", layer="clean", frame=registry_clean),
             Artifact(name="foodhills_clean", layer="clean", frame=foodhills_clean),
-        ]
+        ],
+        assumptions=[
+            AssumptionUse(
+                "apply_approved.r3_area_tolerance",
+                "Allowed gap between survey area and declared area after fixes",
+                tolerance,
+                "share of the declared area",
+                "recipe farm_climate_risk, apply_approved params",
+            )
+        ],
     )

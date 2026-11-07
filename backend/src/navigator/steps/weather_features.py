@@ -165,10 +165,15 @@ def weather_features(ctx: RunContext, inputs: dict[str, Artifact], params: Param
         ],
         assumptions=[
             AssumptionUse(
-                "soil water capacity", dict(cw.AWC_MM), "mm", "navigator/analysis/cropweather.py"
+                "weather_features.soil_water_capacity",
+                "Soil water capacity by crop",
+                dict(cw.AWC_MM),
+                "mm",
+                "navigator/analysis/cropweather.py",
             ),
             AssumptionUse(
-                "C1 climate scenario",
+                "weather_features.c1_scenario",
+                "Climate scenario for the delivered 2027 to 2031 yields",
                 c1_scenario,
                 "",
                 "recipe farm_climate_risk, weather_features params",

@@ -15,6 +15,7 @@ from navigator.recipes.core import (
     PROPOSAL_COLUMNS,
     RULE_COLUMNS,
     Artifact,
+    AssumptionUse,
     Params,
     RunContext,
     StepResult,
@@ -23,6 +24,7 @@ from navigator.recipes.core import (
 )
 
 SURVEY_KEY = ["farm_id", "year", "crop"]
+SOURCE_CHECK = "recipe farm_climate_risk, check_farm_data params"
 
 VALIDATION_COLUMNS = [
     "rule_id",
@@ -501,4 +503,48 @@ def check_farm_data(ctx: RunContext, inputs: dict[str, Artifact], params: Params
         proposals=proposals,
         decisions=None,
         rules=rules_table(backtests, rule_descriptions(params)),
+        assumptions=[
+            AssumptionUse(
+                "check_farm_data.r1_yield_max_ratio_to_median",
+                "Highest yield compared with the median",
+                params["r1_yield_max_ratio_to_median"],
+                "times the median yield",
+                SOURCE_CHECK,
+            ),
+            AssumptionUse(
+                "check_farm_data.r2_nitrogen_ratio_high",
+                "Highest nitrogen rate compared with the farm's usual rate",
+                params["r2_nitrogen_ratio_high"],
+                "times the usual rate",
+                SOURCE_CHECK,
+            ),
+            AssumptionUse(
+                "check_farm_data.r2_nitrogen_ratio_low",
+                "Lowest nitrogen rate compared with the farm's usual rate",
+                params["r2_nitrogen_ratio_low"],
+                "times the usual rate",
+                SOURCE_CHECK,
+            ),
+            AssumptionUse(
+                "check_farm_data.r3_area_tolerance",
+                "Allowed gap between survey area and declared area",
+                params["r3_area_tolerance"],
+                "share of the declared area",
+                SOURCE_CHECK,
+            ),
+            AssumptionUse(
+                "check_farm_data.r4_organic_share_threshold",
+                "Organic share of a crop's area that makes a conventional soil report doubtful",
+                params["r4_organic_share_threshold"],
+                "share of the crop's area",
+                SOURCE_CHECK,
+            ),
+            AssumptionUse(
+                "check_farm_data.backtest_value_tolerance",
+                "How close a fixed value must be to the true value to count as a match",
+                params["backtest_value_tolerance"],
+                "share and absolute gap",
+                SOURCE_CHECK,
+            ),
+        ],
     )

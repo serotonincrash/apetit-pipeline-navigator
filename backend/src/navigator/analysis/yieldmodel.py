@@ -16,6 +16,8 @@ the farm part mostly averages out.
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 
@@ -25,6 +27,9 @@ from navigator.analysis import yieldcv as cv
 # and they are what lets predictions differ parcel by parcel.
 SOIL_FEATURES = ["organic_share_soilmap", "sandy_share", "clay_pct_wavg", "slope_pct_wavg"]
 MANAGEMENT = ["n_mineral_kg_ha", "irrigated", "sprays"]
+
+# A fitted model, as `fit` returns it.
+Model = dict[str, Any]
 
 
 def features(crop: str) -> list[str]:
@@ -103,3 +108,134 @@ def parcel_soil_features(parcels: pd.DataFrame) -> pd.DataFrame:
         },
         index=parcels.index,
     )
+
+
+def backtest(
+    df: pd.DataFrame, unit: tuple[str, str], lam: float = 0.01, shrink_seasons: float = 2.0
+) -> pd.DataFrame:
+    """Refit one region-crop unit without each season in turn and predict that season.
+
+    The comparison is each farm's own average yield in the other seasons. Returns one row per
+    season with the farms that have a history, the actual, model and baseline production, and
+    both production errors in per cent."""
+    r, c = unit
+    cols = features(c)
+    d = df[df["region"].eq(r) & df["crop"].eq(c)].dropna(subset=[*cols, "yield_t_ha"])
+    rows = []
+    for yr in sorted(d["year"].unique()):
+        tr, te = d[d["year"] != yr], d[d["year"] == yr]
+        pred = predict(fit(tr, cols, lam, shrink_seasons), te)
+        base = te["farm_id"].map(tr.groupby("farm_id")["yield_t_ha"].mean())
+        ok = base.notna()
+        te, pred, base = te[ok], pred[ok], base[ok]
+        a = te["area_ha"]
+        rows.append(
+            {
+                "region": r,
+                "crop": c,
+                "year": yr,
+                "farms": len(te),
+                "area_ha": a.sum(),
+                "actual_t": (a * te["yield_t_ha"]).sum(),
+                "model_t": (a * pred).sum(),
+                "baseline_t": (a * base).sum(),
+                "farm_rmse_model": np.sqrt(((te["yield_t_ha"] - pred) ** 2).mean()),
+                "farm_rmse_baseline": np.sqrt(((te["yield_t_ha"] - base) ** 2).mean()),
+                "mean_yield": te["yield_t_ha"].mean(),
+            }
+        )
+    bt = pd.DataFrame(rows)
+    bt["production_error_model_pct"] = 100 * (bt["model_t"] / bt["actual_t"] - 1)
+    bt["production_error_baseline_pct"] = 100 * (bt["baseline_t"] / bt["actual_t"] - 1)
+    return bt
+
+
+def backtest_summary(bt: pd.DataFrame) -> pd.DataFrame:
+    """Per region and crop: seasons, mean absolute production error of the model and of the farm
+    average (in per cent), and the farm-level errors as a share of the mean yield."""
+    g = bt.groupby(["region", "crop"], sort=False)
+    return pd.DataFrame(
+        {
+            "seasons": g.size(),
+            "production error, model (%)": g["production_error_model_pct"].apply(
+                lambda s: s.abs().mean()
+            ),
+            "production error, baseline (%)": g["production_error_baseline_pct"].apply(
+                lambda s: s.abs().mean()
+            ),
+            "farm error, model (% of mean)": 100
+            * g["farm_rmse_model"].mean()
+            / g["mean_yield"].mean(),
+            "farm error, baseline (% of mean)": 100
+            * g["farm_rmse_baseline"].mean()
+            / g["mean_yield"].mean(),
+        }
+    )
+
+
+def model_tables(
+    models: dict[tuple[str, str], Model],
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """The fitted models, keyed by (region, crop), as three tables: coefficients (one row per
+    feature, in the model's feature order), fit (one row per model) and farm levels."""
+    coefficients, fits, levels = [], [], []
+    for (region, crop), m in models.items():
+        for feature in m["features"]:
+            coefficients.append(
+                {
+                    "region": region,
+                    "crop": crop,
+                    "feature": feature,
+                    "coefficient": m["beta"][feature],
+                }
+            )
+        fits.append(
+            {
+                "region": region,
+                "crop": crop,
+                "mean_level": m["mean_level"],
+                "smearing": m["smearing"],
+                "resid_sd": m["resid_sd"],
+                "resid_sd_shared": m["resid_sd_shared"],
+                "resid_sd_farm": m["resid_sd_farm"],
+                "n_rows": m["n_rows"],
+                "n_farms": m["n_farms"],
+                "lam": m["lam"],
+                "shrink_seasons": m["shrink_seasons"],
+            }
+        )
+        levels.extend(
+            {"region": region, "crop": crop, "farm_id": farm, "level": level}
+            for farm, level in m["farm_level"].items()
+        )
+    return pd.DataFrame(coefficients), pd.DataFrame(fits), pd.DataFrame(levels)
+
+
+def models_from_tables(
+    coefficients: pd.DataFrame, fit_table: pd.DataFrame, farm_levels: pd.DataFrame
+) -> dict[tuple[str, str], Model]:
+    """The inverse of `model_tables`: the model dicts that `predict` and `climateproj` take."""
+    models = {}
+    for row in fit_table.to_dict("records"):
+        unit = (str(row["region"]), str(row["crop"]))
+        mine = coefficients[coefficients["region"].eq(unit[0]) & coefficients["crop"].eq(unit[1])]
+        levels = farm_levels[farm_levels["region"].eq(unit[0]) & farm_levels["crop"].eq(unit[1])]
+        models[unit] = {
+            "features": [str(f) for f in mine["feature"]],
+            "beta": {
+                str(f): float(b) for f, b in zip(mine["feature"], mine["coefficient"], strict=True)
+            },
+            "farm_level": {
+                str(f): float(v) for f, v in zip(levels["farm_id"], levels["level"], strict=True)
+            },
+            "mean_level": float(row["mean_level"]),
+            "n_rows": int(row["n_rows"]),
+            "n_farms": int(row["n_farms"]),
+            "resid_sd": float(row["resid_sd"]),
+            "resid_sd_shared": float(row["resid_sd_shared"]),
+            "resid_sd_farm": float(row["resid_sd_farm"]),
+            "smearing": float(row["smearing"]),
+            "lam": float(row["lam"]),
+            "shrink_seasons": float(row["shrink_seasons"]),
+        }
+    return models

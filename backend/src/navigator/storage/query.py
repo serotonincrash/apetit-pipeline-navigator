@@ -44,3 +44,26 @@ def read_rows(
             f"SELECT * FROM {source} {condition} LIMIT ? OFFSET ?", [*params, limit, offset]
         ).df()
     return rows, int(total[0]) if total else 0
+
+
+def read_all_rows(uri: str, where: str = "", parameters: list[Any] | None = None) -> pd.DataFrame:
+    """Every row of one artifact matching an optional filter, in file order."""
+    condition = f"WHERE {where}" if where else ""
+    with connect() as con:
+        return con.execute(
+            f"SELECT * FROM read_parquet('{uri}') {condition}", parameters or []
+        ).df()
+
+
+def corrected_record_keys(
+    uri: str, where: str = "", parameters: list[Any] | None = None
+) -> list[str]:
+    """Record keys of the matching rows that had at least one correction applied, sorted."""
+    condition = f"({where}) AND " if where else ""
+    with connect() as con:
+        rows = con.execute(
+            f"SELECT DISTINCT record_key FROM read_parquet('{uri}') "
+            f"WHERE {condition}n_corrections > 0 ORDER BY record_key",
+            parameters or [],
+        ).fetchall()
+    return [str(r[0]) for r in rows]

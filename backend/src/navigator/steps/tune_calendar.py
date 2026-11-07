@@ -34,6 +34,7 @@ from navigator.recipes.core import (
 
 # The ERP movement type of a goods receipt, which is a delivery to the factory.
 GOODS_RECEIPT = 101
+SOURCE_PARAMS = "recipe farm_climate_risk, tune_calendar params"
 # The ready date does not depend on the soil, so one soil class counts each cell-season once.
 READY_DATE_SOIL = "clay"
 
@@ -277,22 +278,78 @@ def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
         ],
         assumptions=[
             AssumptionUse(
-                "soil water capacity", dict(cw.AWC_MM), "mm", "navigator/analysis/cropweather.py"
+                "tune_calendar.soil_water_capacity",
+                "Soil water capacity by crop",
+                dict(cw.AWC_MM),
+                "mm",
+                "navigator/analysis/cropweather.py",
             ),
             AssumptionUse(
-                "calendar error tolerance",
+                "tune_calendar.error_tolerance",
+                "Calendar error tolerance",
                 tolerance,
                 "share of the best error",
-                "recipe farm_climate_risk, tune_calendar params",
+                SOURCE_PARAMS,
             ),
             AssumptionUse(
-                "ready window lead time",
+                "tune_calendar.ready_window_lead_days",
+                "Ready window lead time",
                 lead_days,
                 "days before early deliveries",
-                "recipe farm_climate_risk, tune_calendar params",
+                SOURCE_PARAMS,
             ),
             AssumptionUse(
-                "Swedish pea delivery dates",
+                "tune_calendar.delivery_quantiles",
+                "Share of deliveries that marks the early and late end of the ready window",
+                params["delivery_quantiles"],
+                "share of deliveries",
+                SOURCE_PARAMS,
+            ),
+            AssumptionUse(
+                "tune_calendar.flower_window_share",
+                "Share of the season's growing degree days counted as the flowering window",
+                flower_share,
+                "share of the season",
+                SOURCE_PARAMS,
+            ),
+            AssumptionUse(
+                "tune_calendar.weak_identification_farm_years",
+                "Farm-years below which a setting is marked weakly identified",
+                weak_below,
+                "farm-years",
+                SOURCE_PARAMS,
+            ),
+            AssumptionUse(
+                "tune_calendar.gdd_maturity_grid",
+                "Maturity lengths tried, by crop (first, last, step)",
+                params["gdd_maturity_grid"],
+                "growing degree days",
+                SOURCE_PARAMS,
+            ),
+            AssumptionUse(
+                "tune_calendar.sowing_temp_grid",
+                "Sowing temperatures tried",
+                params["sowing_temp_grid"],
+                "degrees C",
+                SOURCE_PARAMS,
+            ),
+            AssumptionUse(
+                "tune_calendar.window_start_grid",
+                "Start of the sowing window tried",
+                params["window_start_grid"],
+                "share of the season",
+                SOURCE_PARAMS,
+            ),
+            AssumptionUse(
+                "tune_calendar.window_span_grid",
+                "Length of the sowing window tried",
+                params["window_span_grid"],
+                "share of the season",
+                SOURCE_PARAMS,
+            ),
+            AssumptionUse(
+                "tune_calendar.swedish_pea_delivery_dates",
+                "Delivery dates used for Swedish pea",
                 "Finnish pea ERP deliveries",
                 "",
                 "notebooks/c1_weather_features.ipynb, section 4a",

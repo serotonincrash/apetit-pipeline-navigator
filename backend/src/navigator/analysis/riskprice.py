@@ -18,6 +18,9 @@ When contract farms deliver less than the contracted volume, Apetit buys the gap
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+
+import numpy as np
 import pandas as pd
 
 PRICE_ITEM = {
@@ -44,18 +47,43 @@ def contracted_volume(draws: pd.DataFrame) -> pd.DataFrame:
     ).reset_index()
 
 
-def premiums(
-    prices: pd.DataFrame, transition: pd.DataFrame, price_year: int = 2025
-) -> pd.DataFrame:
-    """Replacement premium per region, crop and NGFS scenario for 2041-60 (plus today's premium)."""
-    p = prices[prices["year"].eq(price_year)].set_index("item")
+def lifts(
+    transition: pd.DataFrame,
+    premium_years: Sequence[int] = (2045, 2050),
+    override: Mapping[str, float] | None = None,
+) -> pd.Series:
+    """Rise in the frozen-vegetable import premium from 2025 to the average of `premium_years`,
+    as a fraction of the price, per NGFS scenario. `override` replaces a scenario's value."""
     t = transition.pivot(index="scenario", columns="year", values="frozen_veg_import_premium_pct")
+    lift = ((t[list(premium_years)].mean(axis=1) - t[2025]) / 100).rename("lift")
+    for ngfs, value in (override or {}).items():
+        lift.loc[ngfs] = value
+    return lift
+
+
+def premiums(
+    prices: pd.DataFrame,
+    transition: pd.DataFrame,
+    price_year: int = 2025,
+    premium_years: Sequence[int] = (2045, 2050),
+    overrides: Mapping[str, Mapping[str, float]] | None = None,
+    lift_override: Mapping[str, float] | None = None,
+) -> pd.DataFrame:
+    """Replacement premium per region, crop and NGFS scenario for 2041-60 (plus today's premium).
+
+    `overrides` replaces values in the price file, keyed by its item and then its column.
+    `lift_override` replaces the computed premium rise of an NGFS scenario."""
+    p = prices[prices["year"].eq(price_year)].set_index("item")
+    for item, columns in (overrides or {}).items():
+        for column, value in columns.items():
+            p[column] = p[column].astype(float)
+            p.loc[item, column] = value
     proxy = (
         transition.drop_duplicates("scenario")
         .set_index("scenario")["physical_pathway_proxy"]
         .to_dict()
     )
-    lift = ((t[[2045, 2050]].mean(axis=1) - t[2025]) / 100).rename("lift")
+    lift = lifts(transition, premium_years, lift_override)
     rows = []
     for (r, c), item in PRICE_ITEM.items():
         base = float(p["replacement_import_premium_frac"].loc[item])
@@ -121,3 +149,70 @@ def summarise(priced: pd.DataFrame, by=("region", "crop", "scenario", "ngfs")) -
             "one_in_ten_import_tco2e": g["import_tco2e"].quantile(0.9),
         }
     ).reset_index()
+
+
+def totals(priced: pd.DataFrame) -> pd.DataFrame:
+    """All crops together, season by season (every crop uses the same past seasons, so a season
+    that is bad everywhere is bad in the total). Per climate and NGFS scenario: expected cost and
+    emissions, the 1-in-10 bad year, and what the climate adds to the expected cost compared with
+    today (the baseline weather)."""
+    season = (
+        priced.groupby(["scenario", "ngfs", "season", "rep"], sort=False)[
+            ["extra_cost_eur", "import_tco2e"]
+        ]
+        .sum()
+        .reset_index()
+    )
+    g = season.groupby(["scenario", "ngfs"], sort=False)
+    out = pd.DataFrame(
+        {
+            "expected_cost_eur": g["extra_cost_eur"].mean(),
+            "one_in_ten_cost_eur": g["extra_cost_eur"].quantile(0.9),
+            "expected_import_tco2e": g["import_tco2e"].mean(),
+            "one_in_ten_import_tco2e": g["import_tco2e"].quantile(0.9),
+        }
+    ).reset_index()
+    today = out.loc[out["scenario"].eq("baseline"), "expected_cost_eur"].iloc[0]
+    out["climate_added_cost_eur"] = out["expected_cost_eur"] - today
+    return out
+
+
+def foodhills_cover(
+    draws: pd.DataFrame,
+    contracted: pd.DataFrame,
+    prem: pd.DataFrame,
+    short_share: float = 0.1,
+) -> pd.DataFrame:
+    """Upper bound on how much of the Finnish pea shortfall Swedish pea surplus could cover.
+
+    Per climate scenario and season (averaged over the simulated outcomes, so it reflects the
+    weather, not chance farm noise), the Finnish shortfall is compared with the Swedish surplus
+    above its contracted volume. Not priced into the risk. Assumes every tonne of surplus could be
+    frozen at Bjuv and sent to Finland. A season is short when the shortfall is above
+    `short_share` of the Finnish contract. The premium avoided uses today's Finnish pea premium."""
+    pea = draws[draws["crop"].eq("pea") & ~draws["scenario"].str.endswith("_run")]
+    season = pea.groupby(["scenario", "region", "season"])["production_t"].mean().unstack("region")
+    ct = contracted[contracted["crop"].eq("pea")].set_index("region")["contracted_t"]
+    fi_short = (ct["FI_SW"] - season["FI_SW"]).clip(lower=0)
+    se_surplus = (season["SE_SKANE"] - ct["SE_SKANE"]).clip(lower=0)
+    today = prem[prem["region"].eq("FI_SW") & prem["crop"].eq("pea") & prem["ngfs"].eq("today")]
+    price, premium = (
+        float(today["contract_price_eur_t"].to_numpy()[0]),
+        float(today["premium"].to_numpy()[0]),
+    )
+    rows = []
+    for scenario in fi_short.index.get_level_values("scenario").unique():
+        fs, ss = fi_short.loc[scenario], se_surplus.loc[scenario]
+        short = fs > short_share * ct["FI_SW"]
+        covered = np.minimum(fs, ss)
+        rows.append(
+            {
+                "scenario": scenario,
+                "seasons": len(fs),
+                "seasons_short": int(short.sum()),
+                "seasons_with_surplus": int((short & (ss > 0)).sum()),
+                "cover_share_pct": 100 * covered.sum() / max(fs.sum(), 1e-9),
+                "premium_avoided_eur": covered.mean() * price * premium,
+            }
+        )
+    return pd.DataFrame(rows)

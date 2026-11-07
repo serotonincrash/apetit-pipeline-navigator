@@ -108,32 +108,6 @@
     "status": "proposed"
   },
   {
-    "action_id": "A5-early-sowing-fi-pea",
-    "short_name": "Sow Finnish pea up to 14 days earlier",
-    "name": "Allow Finnish pea sowing up to 14 days earlier",
-    "driver": "heat at flowering, Finnish pea",
-    "applies_at": "weather_features",
-    "override": {
-      "type": "shift_sowing",
-      "days": -14
-    },
-    "scope": {
-      "units": [
-        [
-          "FI_SW",
-          "pea"
-        ]
-      ]
-    },
-    "cost": {
-      "eur_per_year": 0,
-      "source": "assumption: no direct cost"
-    },
-    "confidence": "low: no recorded season was sown this early, and frost after sowing is not modelled",
-    "proposed_by": "team draft (stand-in for the action proposer agent)",
-    "status": "proposed"
-  },
-  {
     "action_id": "A6-heat-tolerant-pea-fi",
     "short_name": "Heat-tolerant Finnish pea (assumed)",
     "name": "Heat-tolerant pea varieties in Finland, assumed to cut heat damage at flowering by 30%",

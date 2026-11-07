@@ -25,6 +25,8 @@ from navigator.steps.apply_approved import apply_approved
 from navigator.steps.check_farm_data import check_farm_data
 from navigator.steps.load_raw import load_raw
 from navigator.steps.spatial_join import spatial_join
+from navigator.steps.tune_calendar import tune_calendar
+from navigator.steps.weather_features import weather_features
 
 
 class DiskPackage(Mapping[str, SourceFile]):
@@ -125,3 +127,38 @@ def clean_tables(
         result = run_step(ctx, func, name, tables)
         tables.update({table.name: table for table in result.tables})
     return tables
+
+
+def recipe_params(name: str) -> dict[str, Any]:
+    return dict(recipe_step(name).params)
+
+
+@pytest.fixture(scope="session")
+def upstream(clean_tables: dict[str, Artifact]) -> dict[str, Artifact]:
+    """The tables steps 5 and 6 read, as steps 1 to 4 wrote them."""
+    names = (
+        "weather_daily",
+        "erp_purchase_lines",
+        "c1_template",
+        "training_table",
+        "parcel_year_contract",
+    )
+    return {name: clean_tables[name] for name in names}
+
+
+@pytest.fixture(scope="session")
+def calendar(ctx: RunContext, upstream: dict[str, Artifact]) -> dict[str, pd.DataFrame]:
+    names = ("weather_daily", "training_table", "parcel_year_contract", "erp_purchase_lines")
+    result = tune_calendar(ctx, {n: upstream[n] for n in names}, recipe_params("tune_calendar"))
+    return {t.name: t.frame for t in result.tables}
+
+
+@pytest.fixture(scope="session")
+def features(
+    ctx: RunContext, upstream: dict[str, Artifact], calendar: dict[str, pd.DataFrame]
+) -> dict[str, pd.DataFrame]:
+    names = ("weather_daily", "training_table", "parcel_year_contract", "c1_template")
+    inputs = {n: upstream[n] for n in names}
+    inputs["crop_params"] = Artifact("crop_params", "feature", calendar["crop_params"])
+    result = weather_features(ctx, inputs, recipe_params("weather_features"))
+    return {t.name: t.frame for t in result.tables}

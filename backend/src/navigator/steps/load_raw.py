@@ -23,9 +23,9 @@ def read_table(path: str, content: bytes, read_options: Mapping[str, Any]) -> pd
     "load_raw",
     kind="load",
     summary=(
-        "Reads the farm, parcel, weather and answer-key files the recipe uses from the challenge "
-        "package, exactly as delivered, and keeps each as a raw table that later steps never "
-        "change."
+        "Reads the farm, parcel, weather, climate change, price, scenario and answer-key files the "
+        "recipe uses from the challenge package, exactly as delivered, and keeps each as a raw "
+        "table that later steps never change."
     ),
 )
 def load_raw(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> StepResult:

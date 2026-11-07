@@ -8,6 +8,7 @@ import pandas as pd
 from navigator.recipes.core import (
     PROPOSALS_INPUT,
     Artifact,
+    AssumptionUse,
     Params,
     RunContext,
     StepResult,
@@ -18,6 +19,7 @@ from navigator.recipes.core import (
 EARTH_RADIUS_KM = 6371.0
 KM_PER_DEGREE_LATITUDE = 111.0
 FARM_YEAR_KEY = ["farm_id", "year", "crop"]
+SOURCE_JOIN = "recipe farm_climate_risk, spatial_join params"
 
 
 def nearest_cell(parcels: pd.DataFrame, grid: pd.DataFrame) -> pd.DataFrame:
@@ -327,5 +329,35 @@ def spatial_join(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -
             Artifact(name="parcel_features", layer="feature", frame=features),
             Artifact(name="parcel_year_contract", layer="feature", frame=parcel_years),
             Artifact(name="training_table", layer="feature", frame=training),
-        ]
+        ],
+        assumptions=[
+            AssumptionUse(
+                "spatial_join.max_cell_distance_km",
+                "Farthest a parcel may be from its weather cell",
+                params["max_cell_distance_km"],
+                "km",
+                SOURCE_JOIN,
+            ),
+            AssumptionUse(
+                "spatial_join.max_farm_to_parcels_km",
+                "Farthest a farm's registered location may be from its parcels",
+                params["max_farm_to_parcels_km"],
+                "km",
+                SOURCE_JOIN,
+            ),
+            AssumptionUse(
+                "spatial_join.template_area_tolerance_ha",
+                "Allowed gap between the template's area and the declared area",
+                params["template_area_tolerance_ha"],
+                "ha",
+                SOURCE_JOIN,
+            ),
+            AssumptionUse(
+                "spatial_join.max_yield_ratio_to_median",
+                "Highest yield compared with the median that stays in the training table",
+                params["max_yield_ratio_to_median"],
+                "times the median yield",
+                SOURCE_JOIN,
+            ),
+        ],
     )

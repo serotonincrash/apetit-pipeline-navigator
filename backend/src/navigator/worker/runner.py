@@ -4,10 +4,16 @@ All reading and writing happens here. Steps get their input tables as DataFrames
 a StepResult; the runner stores the tables as Parquet artifacts and writes the proposals,
 decisions, rules and assumptions to Postgres. Events are committed as they happen, so the
 app can follow a run live.
+
+Steps name their metrics, lineage tables, assumptions and insight citations; the runner swaps
+in the ids. It holds every step's metrics and insights in memory and writes them with the
+result set in the same transaction that marks the run succeeded, so a failed run leaves no
+partial results.
 """
 
+import re
 import time
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,6 +27,8 @@ from navigator.db.decisions import latest_decisions, proposal_status, proposal_v
 from navigator.db.session import session_scope
 from navigator.logs import get_logger
 from navigator.recipes.core import (
+    INSIGHT_COLUMNS,
+    METRIC_COLUMNS,
     PROPOSALS_INPUT,
     STEPS,
     Artifact,
@@ -116,10 +124,128 @@ def proposals_with_status(session: Session, run_id: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+METRIC_TOKEN = re.compile(r"\{\{metric:([^}]+)\}\}")
+DIMENSIONS = ["region", "crop", "scenario", "ngfs_scenario", "period", "action_id"]
+
+
+def _missing(value: Any) -> bool:
+    return value is None or (isinstance(value, float) and pd.isna(value))
+
+
+def _optional(value: Any) -> Any:
+    return None if _missing(value) else value
+
+
+def _optional_float(value: Any) -> float | None:
+    return None if _missing(value) else float(value)
+
+
+def _check_columns(frame: pd.DataFrame, columns: Sequence[str], what: str) -> None:
+    absent = [c for c in columns if c not in frame.columns]
+    if absent:
+        raise ValueError(f"The {what} table has no {', '.join(absent)} column.")
+
+
+def build_metric_rows(
+    frames: Sequence[pd.DataFrame],
+    result_set_id: str,
+    artifact_ids: Mapping[str, str],
+    assumption_ids: Mapping[str, str],
+) -> tuple[list[m.Metric], dict[str, str]]:
+    """Turn the steps' metric tables into rows, swapping table and assumption names for ids.
+
+    Also returns each metric key's new metric id, which the insights cite.
+    """
+    rows: list[m.Metric] = []
+    metric_ids: dict[str, str] = {}
+    for frame in frames:
+        _check_columns(frame, METRIC_COLUMNS, "metric")
+        for record in frame.to_dict("records"):
+            key = str(record["key"])
+            if key in metric_ids:
+                raise ValueError(f"The metric key {key!r} is used twice.")
+            if _missing(record["value"]):
+                raise ValueError(f"The metric {key!r} has no value.")
+            lineage: list[Any] = []
+            for entry in record["lineage"]:
+                table = entry["table"]
+                if table not in artifact_ids:
+                    raise ValueError(
+                        f"The metric {key!r} names the table {table!r}, which no step wrote."
+                    )
+                lineage.append({"artifact": artifact_ids[table], "filter": entry["filter"]})
+            assumption_refs: list[str] = []
+            for name in record["assumptions"]:
+                if name not in assumption_ids:
+                    raise ValueError(
+                        f"The metric {key!r} names the assumption {name!r}, which no step recorded."
+                    )
+                assumption_refs.append(assumption_ids[name])
+            metric_id = ids.new_id("metric")
+            metric_ids[key] = metric_id
+            rows.append(
+                m.Metric(
+                    metric_id=metric_id,
+                    result_set_id=result_set_id,
+                    name=record["name"],
+                    unit=record["unit"],
+                    value=float(record["value"]),
+                    low=_optional_float(record["low"]),
+                    high=_optional_float(record["high"]),
+                    **{d: _optional(record[d]) for d in DIMENSIONS},
+                    lineage=lineage,
+                    assumption_ids=assumption_refs,
+                )
+            )
+    return rows, metric_ids
+
+
+def build_insight_rows(
+    held: Sequence[tuple[str, pd.DataFrame]],
+    result_set_id: str,
+    metric_ids: Mapping[str, str],
+) -> list[m.Insight]:
+    """Turn the steps' insight tables (each with its step name) into rows.
+
+    Every `{{metric:<key>}}` in the text and every entry of `metric_keys` becomes the metric id.
+    """
+
+    def metric_id(key: str, title: str) -> str:
+        if key not in metric_ids:
+            raise ValueError(
+                f"The insight {title!r} cites the metric {key!r}, which no step wrote."
+            )
+        return metric_ids[key]
+
+    rows: list[m.Insight] = []
+    for step_name, frame in held:
+        _check_columns(frame, INSIGHT_COLUMNS, "insight")
+        for record in frame.to_dict("records"):
+            title = str(record["title"])
+            text = METRIC_TOKEN.sub(
+                lambda token, title=title: "{{metric:" + metric_id(token.group(1), title) + "}}",
+                record["text"],
+            )
+            rows.append(
+                m.Insight(
+                    insight_id=ids.new_id("insight"),
+                    result_set_id=result_set_id,
+                    step=step_name,
+                    title=title,
+                    text=text,
+                    metric_ids=[metric_id(key, title) for key in record["metric_keys"]],
+                )
+            )
+    return rows
+
+
 class RunExecution:
     def __init__(self, run_id: str) -> None:
         self.run_id = run_id
         self.tables: dict[str, Artifact] = {}
+        self.metrics: list[pd.DataFrame] = []
+        self.insights: list[tuple[str, pd.DataFrame]] = []
+        self.assumption_ids: dict[str, str] = {}
 
     def execute(self) -> None:
         with session_scope() as session:
@@ -139,6 +265,18 @@ class RunExecution:
         with session_scope() as session:
             result_set = m.ResultSet(result_set_id=ids.new_id("result_set"), run_id=self.run_id)
             session.add(result_set)
+            # The models declare no relationships, so nothing else orders this insert first.
+            session.flush()
+            artifact_ids = {
+                name: table.artifact_id
+                for name, table in self.tables.items()
+                if table.artifact_id is not None
+            }
+            metric_rows, metric_ids = build_metric_rows(
+                self.metrics, result_set.result_set_id, artifact_ids, self.assumption_ids
+            )
+            session.add_all(metric_rows)
+            session.add_all(build_insight_rows(self.insights, result_set.result_set_id, metric_ids))
             run = session.get_one(m.Run, self.run_id)
             run.status = "succeeded"
             run.finished_at = _now()
@@ -304,13 +442,23 @@ class RunExecution:
                 rule.last_run_id = self.run_id
                 session.add(rule)
 
+        if result.metrics is not None and len(result.metrics):
+            self.metrics.append(result.metrics)
+        if result.insights is not None and len(result.insights):
+            self.insights.append((step, result.insights))
+
         for use in result.assumptions:
+            if use.name in self.assumption_ids:
+                raise ValueError(f"The assumption {use.name!r} is recorded twice in this run.")
+            assumption_id = ids.new_id("assumption")
+            self.assumption_ids[use.name] = assumption_id
             session.add(
                 m.Assumption(
-                    assumption_id=ids.new_id("assumption"),
+                    assumption_id=assumption_id,
                     run_id=self.run_id,
                     step=step,
                     name=use.name,
+                    label=use.label,
                     value=use.value,
                     unit=use.unit,
                     source=use.source,

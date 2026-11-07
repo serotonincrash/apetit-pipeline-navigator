@@ -169,7 +169,7 @@ States:
 - Result set: created as `draft` when a full run succeeds (report runs add drafts to an existing result set and create none), then `in review`, `approved` and `published`. A later published set marks the earlier one `superseded`.
 - Proposals: written during the check steps. The run builds cleaned tables from the fixes approved so far; the Data review screen offers "run again with approved fixes" once new decisions are in.
 
-The worker polls the `run` table every few seconds, claims the oldest queued run with `FOR UPDATE SKIP LOCKED`, and executes its steps in order. Each step writes its `step_run`, artifact, proposal and metric rows, and emits events.
+The worker polls the `run` table every few seconds, claims the oldest queued run with `FOR UPDATE SKIP LOCKED`, and executes its steps in order. Each step writes its `step_run`, artifact and proposal rows, and emits events. The runner holds each step's metrics and insights until the run succeeds, then writes them with the result set in one transaction, so a failed run leaves no partial results.
 
 Events are stored in a `run_event` table and streamed at `GET /api/runs/{id}/events` as server-sent events. A reconnecting browser sends the last event id it saw and gets the rest from the table.
 
@@ -324,8 +324,8 @@ Golden-number tests compare each refactored step with the notebooks' results: fi
 | Tune calendar | The chosen settings in `calendar_choice.csv` |
 | Fit yield model | The coefficients and backtest errors in `yield_model.json` and `yield_backtest_summary.csv` |
 | Project yields | The yield changes and bad-year chances in `yield_projection_2041_2060.csv` |
-| Price risk | The expected costs in `climate_risk_eur.csv`, to the cent |
-| Compare actions | The cost removed per action in `action_options.csv` |
+| Price risk | The expected costs in `climate_risk_eur.csv`, to the cent, and the totals in `climate_risk_total.csv`, to the euro, because that file is rounded to €1 |
+| Compare actions | The cost removed per action in `action_options.csv`, once `c4_actions.ipynb` is rerun with the five-action catalogue |
 
 API tests run against the worktree's own test database and bucket in the shared Postgres and SeaweedFS, emptied at the start of each test session, with the LLM replaced by a fake model that returns fixed JSON:
 
@@ -482,7 +482,7 @@ Seventeen tables hold everything the platform knows: what went in, what each ste
 | `step_run` | One step inside a run | `step_run_id`, `run_id`, `step`, `kind`, `params`, `input_artifacts`, `output_artifacts`, `status`, `seconds` | Runner |
 | `run_event` | One progress event from a run, streamed to the app | event\_id, run\_id, step, type, payload, created\_at | Runner |
 | `artifact` | One table a step produced | `artifact_id`, `step_run_id`, `name`, `uri`, `layer` (raw, clean, feature, result), `row_count`, `content_hash` | Runner |
-| `assumption` | One input value a person can question | `assumption_id`, `name`, `value`, `unit`, `source` (file and row, or document and section), `owner`, `status` | Sustainability specialist, steps |
+| `assumption` | One input value a person can question | `assumption_id`, `name`, `label` (the plain words the app shows), `value`, `unit`, `source` (file and row, or document and section), `owner`, `status` | Sustainability specialist, steps |
 | `proposal` | One proposed data fix or flag, as one run wrote it | proposal\_id (prop\_…), proposal\_key (rule, record key and field; the same in every run), run\_id, rule\_id, issue\_type, proposer, table, record\_key, field, old\_value, new\_value, action (fix or flag), evidence (JSON, see Proposal columns), explanation. No status column: the status comes from the latest decision on the proposal\_key. | Check steps, agents |
 | `rule` | One check, written by a person or proposed by an agent | `rule_id`, `version`, `code`, `author`, `backtest` (precision and recall on labelled history), `status` | Developers, agent |
 | `decision` | One decision, by a person or by a written policy a person signed off, never edited afterwards | decision\_id, target\_type (proposal, rule, action, action\_option or result\_set), target\_id (a proposal\_key for proposals), decision, edited\_value, reviewer (a person's name, or "Catalogue policy" for the seeded catalogue actions), comment, run\_id, decided\_at | Reviewers, seed job |
@@ -500,7 +500,7 @@ Rules that keep the audit trail honest:
 2. Record keys use the package's formats, for example `farm_survey:FS02175`, `erp:4500002962:10` and `energy:S-SAK:2025-03:electricity`. A key means the same row in every table and screen.
 3. `decision` is append-only. The current status of a proposal, rule, action, action option or result set is its latest decision.
 4. Every `metric` carries enough lineage to list its contributing rows, and every number in a report points to a `metric`.
-5. An assumption's name is the step and param it sets, for example `price_risk.replacement_premium_lift`. Every param that changes a result is recorded as an assumption, with its unit and source. Values read from package files, such as contract prices, are overridden through a step param of overrides keyed by the file's row. Overriding an assumption queues a full run with that param changed.
+5. An assumption's name is the step and param it sets, for example `price_risk.replacement_premium_lift`, and the app shows its label instead. Every param that changes a result is recorded as an assumption, with its unit and source. Values read from package files, such as contract prices, are overridden through a step param of overrides keyed by the file's row. Overriding an assumption queues a full run with that param changed.
 
 ### Step contract
 
@@ -515,7 +515,7 @@ def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
 - `RunContext` carries `run_id`, `recipe_id` and `sources`, the package files by path, and llm, the LLM wrapper. Steps of kind llm make every call through ctx.llm, so the call log, retries, prose check and fake model cover them. Only `load_raw` reads `sources`.
 - `params` are the step's params from the recipe, with any overrides queued with the run.
 - The recipe definition lists the tables each step reads. The input named `proposals` is filled by the runner with this run's proposals and their current status (open, approved, rejected or flag). Each carries its effective value: for an edited fix, the edited value from its latest decision replaces new\_value.
-- `StepResult` holds `tables` (the artifacts the step writes), `proposals` (a table with the columns below, or none), `decisions` (approvals under a policy a person signed off; recipe 1 writes none), `rules` (one row per rule: rule\_id, version, description, author, backtest), `assumptions` (each input value used, with its unit and source), and from step 9 on `metrics` and `insights`.
+- `StepResult` holds `tables` (the artifacts the step writes), `proposals` (a table with the columns below, or none), `decisions` (approvals under a policy a person signed off; recipe 1 writes none), `rules` (one row per rule: rule\_id, version, description, author, backtest), `assumptions` (each input value used, with its unit and source), and from step 7 on `metrics` and `insights` (see Metric rows).
 
 ### Proposal columns
 
@@ -558,15 +558,17 @@ A metric's `lineage` is a list of entries, each naming one artifact and a filter
 
 ```json
 [
-  {"artifact": "art_01JC...", "filter": {"region": "FI_SW", "crop": "pea", "scenario": "ssp585", "year": {"min": 2041, "max": 2060}}},
-  {"artifact": "art_01JD...", "filter": {"farm_id": ["F0012", "F0040"]}}
+  {"artifact": "art_01JC...", "filter": {"region": "FI_SW", "crop": "pea", "scenario": "ssp585"}},
+  {"artifact": "art_01JD...", "filter": {"crop": "pea", "farm_id": ["F0012", "F0040"]}}
 ]
 ```
 
 - Every key is a column of that artifact. A value is a single value, a list (any of them) or a range with `min`, `max` or both, inclusive. Keys combine with AND, and an empty filter means the whole table.
+- Metric lineage uses single values and lists only, so `GET /api/artifacts/{id}/rows` can apply it as repeated `column=value` filters. Ranges are for evidence queries.
+- A shifted season keeps the past season it came from. In `parcel_seasons` and `yield_draws`, every climate scenario holds seasons 1991 to 2020. Seasons 2041 to 2060 appear only under `ssp126_run`, `ssp245_run` and `ssp585_run`, the delivered runs kept as a check. The `ssp585` rows of `weather_features_cell` are that delivered run too, so a metric's lineage never points at them.
 - The API builds the SQL itself, using only the artifact's own column names and passing every value as a parameter. Steps never write SQL into lineage.
 - Corrections need no entry of their own. Every cleaned row keeps its `record_key` and `n_corrections`, so the drill-down finds the decisions applied to the contributing rows by record key.
-- The side panel and the report's disclosure groups show a filter in plain words built from the glossary, for example "Pea, South-west Finland, High emissions (SSP5-8.5), seasons 2041 to 2060".
+- The side panel and the report's disclosure groups show a filter in plain words built from the glossary, for example "Pea, South-west Finland, High emissions (SSP5-8.5), 30 past seasons shifted to 2041 to 2060".
 
 ### Metric catalogue
 
@@ -574,7 +576,8 @@ Only headline numbers become metrics: the ones the Risk view, the Actions screen
 
 | Metric | Unit | Dimensions | Range | Source in the notebooks |
 | --- | --- | --- | --- | --- |
-| `fit_yield_model.production_error_pct` | % | region, crop; `period` 2012–2025 | No | `yield_backtest_summary.csv`, model and baseline as two metrics |
+| `fit_yield_model.production_error_pct` | % | region, crop; `period` 2012–2026, or 2018–2026 for Swedish pea | No | `yield_backtest_summary.csv`, the model's error |
+| `fit_yield_model.baseline_production_error_pct` | % | as above | No | `yield_backtest_summary.csv`, the farm average's error |
 | `project_yields.yield_change_pct` | % | region, crop, scenario; `period` 2041–2060 | Yes | `yield_projection_2041_2060.csv` |
 | `project_yields.bad_year_chance` | share | region, crop, scenario; `period` 1991–2020 or 2041–2060 | Yes | `yield_projection_2041_2060.csv` |
 | `price_risk.expected_cost_eur` | € per year | region, crop, scenario, ngfs\_scenario; totals with region and crop empty | No | `climate_risk_eur.csv`, `climate_risk_total.csv` |
@@ -585,11 +588,25 @@ Only headline numbers become metrics: the ones the Risk view, the Actions screen
 | `compare_actions.import_tco2e_removed` | t CO2e per year | action\_id, scenario | No | `action_options.csv` |
 | `compare_actions.break_even_cost_eur` | € per year | action\_id, scenario | No | `action_options.csv` |
 
-The scenario `baseline` means 1991–2020 weather with today's farms, and the ngfs\_scenario `today` means today's premiums. Insights cite these metrics or add their own, for example `price_risk.foodhills_cover_share` (%, by climate scenario) for the Foodhills hedge.
+The scenario `baseline` means 1991–2020 weather with today's farms, and the ngfs\_scenario `today` means today's premiums. The app shows them as "1991–2020 weather" and "Today's premiums". The delivered runs (`ssp126_run` and the others) stay in the tables as a check and never become metrics. Insights cite these metrics or add their own, for example `price_risk.foodhills_cover_share` (%, by climate scenario) for the Foodhills hedge.
+
+### Metric rows
+
+A step can't know the ids the runner assigns, so it names things and the runner swaps in the ids when it stores them. `StepResult.metrics` is a table with these columns:
+
+| Column | Meaning |
+| --- | --- |
+| `key` | A name unique within the run, for example `price_risk.expected_cost_eur\|FI_SW\|pea\|ssp585\|current_policies` |
+| `name`, `unit`, `value`, `low`, `high` | The measure from the metric catalogue. `low` and `high` are empty where it has no range |
+| `region`, `crop`, `scenario`, `ngfs_scenario`, `period`, `action_id` | Its dimensions, empty where they don't apply |
+| `lineage` | Entries as under Lineage filter, each with `table` (a table name from this run) in place of `artifact`. The runner replaces it with the artifact id |
+| `assumptions` | The assumption names it rests on. The runner resolves them to this run's `assumption_ids` |
+
+`StepResult.insights` is a table of `title`, `text` and `metric_keys`. Its text cites metrics as `{{metric:<key>}}`, and the runner replaces each key with the metric id. A key, table or assumption name that doesn't resolve fails the run.
 
 ## Recipe 1: farm climate risk
 
-Twelve steps, numbered 1 to 10 with two agent steps 2a and 2b, take the raw package to approved risk results on how much climate change could cost Apetit's contract farming, and what to do about it. Steps 1 to 6 are refactored into step functions (milestone 1), and 2a and 2b are new. Steps 7 to 10 still live in the notebooks named in the table, in the monorepo's `notebooks/` folder.
+Twelve steps, numbered 1 to 10 with two agent steps 2a and 2b, take the raw package to approved risk results on how much climate change could cost Apetit's contract farming, and what to do about it. Steps 1 to 6 are refactored into step functions (milestone 1), steps 7 to 9 follow them (milestone 2), and 2a and 2b are new. Step 10 still lives in the notebook named in the table, in the monorepo's `notebooks/` folder.
 
 | # | Step | Reads | Writes | Kind | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -601,19 +618,19 @@ Twelve steps, numbered 1 to 10 with two agent steps 2a and 2b, take the raw pack
 | 4 | `spatial_join` | Parcels, weather grid, crop history, cleaned tables | Parcel-to-cell map; parcel-year table 2012–2031; farm-year training table | Transform | Refactored from `c1_clean.ipynb` |
 | 5 | `tune_calendar` | Daily weather, training table, parcel-years, ERP deliveries | Crop calendar per region and crop; tuning record and choice | Model | Refactored from `c1_weather_features.ipynb` |
 | 6 | `weather_features` | Daily weather, crop calendar, training table, parcel-years | Stress measures per cell, soil, crop, season and climate scenario; parcel-year and farm-year model tables | Transform | Refactored from `c1_weather_features.ipynb` |
-| 7 | `fit_yield_model` | Farm-year model table | Coefficients per region and crop; backtest error by season | Model | In `c1_yield_model.ipynb` |
-| 8 | `project_yields` | Model, 2025 contract parcels, weather for 1991–2020 and 2041–2060 | Yield change, chance of a bad year and shortfall distribution per region, crop and climate scenario | Model | In `c2_yield_projection.ipynb` |
-| 9 | `price_risk` | Shortfalls, contract prices, import premiums, contracted volumes, emission factors | Expected cost per year and in a 1-in-10 bad year, in euros; extra emissions from replacement imports; the Foodhills insight | Transform | In `c3_risk_pricing.ipynb` |
-| 10 | `compare_actions` | Risk results, approved actions, assumptions | Action options with cost, risk removed and emissions change | Model | In `c4_actions.ipynb` |
+| 7 | `fit_yield_model` | `model_table` | `yield_coefficients`, `yield_fit` and `farm_levels` (the fitted model); `yield_backtest` (error by season) | Model | Refactored from `c1_yield_model.ipynb` |
+| 8 | `project_yields` | The three fitted model tables, `model_table`, `parcel_year_features`, `crop_params`, `weather_daily`, `climate_change_signals` | `parcel_seasons`; `yield_draws` (the shortfall distribution); `yield_projection` (yield change and chance of a bad year per region, crop and climate scenario) | Model | Refactored from `c2_yield_projection.ipynb` |
+| 9 | `price_risk` | `yield_draws`, `contract_prices`, `transition_scenarios`; emission factors from its params | `contracted_volume`, `priced_draws`; `climate_risk` and `climate_risk_total` (expected cost per year and in a 1-in-10 bad year, in euros, and extra emissions from replacement imports); `foodhills_cover` and the Foodhills insight | Transform | Refactored from `c3_risk_pricing.ipynb` |
+| 10 | `compare_actions` | `parcel_seasons`, the three fitted model tables, `contracted_volume`, `contract_prices`, `transition_scenarios`, and `actions` (approved action specs, filled by the runner like `proposals`) | Action options with cost, risk removed and emissions change; loss drivers | Model | In `c4_actions.ipynb` |
 
 Drafting the report and publishing are not recipe steps. Drafting is a report run (see Run lifecycle and live events), and review and publishing are states of the result set.
 
 What the new steps compute:
 
-- `fit_yield_model`: the within-farm model already used for tuning. Log yield equals the farm's own level plus the weather and management effects. It is checked season by season on held-out years and reports its error next to the farm-average baseline.
-- `project_yields`: there is only one weather run per scenario, so we build an ensemble. Take each historical season from 1991–2020, shift its temperature and scale its rain by the monthly changes in `climate_change_signals.csv` for that scenario, and recompute evaporation with the same Hargreaves formula the package uses. Run the 30 shifted seasons per cell through the features and the model, with today's parcels, management and the trend held at 2026, and simulate each season 50 times with the model's leftover error, drawn with a fixed random seed (2026; the bootstrap of differences uses seed 7). Both seeds are params, recorded as assumptions on every run, which is what lets the golden test match to the cent. A bad year is a yield under 80% of the 1991–2020 average, the package's own definition. The single delivered run for each scenario serves as a check.
-- `price_risk`: contracted volume is the 2025 contract area (the parcels declared for 2025 in parcel\_crop\_history\_and\_plan.csv) times the normal yield of today's farms, from the model on 1991–2020 weather (1996–2025 weather changes it by under 2%, kept as a sensitivity). The shortfall in a season is the volume below that. Its extra cost is the shortfall times the contract price times the replacement premium, using `contract_prices_and_replacement_premiums.csv` and the import-premium paths in `transition_scenarios.csv` for each NGFS (transition) scenario, matched to its climate scenario by that file's physical\_pathway\_proxy column. The glossary lists the seven NGFS scenarios with their display names and climate scenarios. Extra emissions are the shortfall times the full import emission factor, because the domestic fields are farmed either way. The factors per region and crop are in notebooks/results/import\_ef.json, from 0.31 t CO2e per tonne for carrot to 1.35 for turnip rape. Shortfalls are priced as market imports only; Foodhills supply is written as an insight (see Data model), not counted.
-- `compare_actions`: prices every approved action inside the run, as c4\_actions does: it applies the action's override to copies of the projection inputs, simulates the same seasons with the same random draws, and prices the result like the no-action case, writing one action option per action and scenario. Actions the model cannot price are refused with a reason, as actions\_not\_run.csv records. On the first run the six catalogue actions are already approved, by the Catalogue policy at seeding, so the step always has something to price. The catalogue and what each action changes are under Actions and what-if runs.
+- `fit_yield_model`: the within-farm model already used for tuning. Log yield equals the farm's own level plus the weather and management effects. It is checked season by season on held-out years and reports its error next to the farm-average baseline. Steps pass only tables, so the fitted model is three: `yield_coefficients` (region, crop, feature, coefficient), `yield_fit` (one row per region and crop with the mean level, the smearing factor, the leftover error and its shared and farm parts) and `farm_levels` (region, crop, farm, level). The notebook's 2027–31 parcel predictions belong to the C1 submission file and stay out of this step.
+- `project_yields`: there is only one weather run per scenario, so we build an ensemble. Take each historical season from 1991–2020, shift its temperature and scale its rain by the monthly changes in `climate_change_signals.csv` for that scenario, and recompute evaporation with the same Hargreaves formula the package uses. Run the 30 shifted seasons per cell through the features and the model, with today's parcels, management and the trend held at 2026, and simulate each season 50 times with the model's leftover error, drawn with a fixed random seed (2026; the bootstrap of differences uses seed 7). Both seeds are params, recorded as assumptions on every run, which is what lets the golden test match to the cent. A bad year is a yield under 80% of the 1991–2020 average, the package's own definition. The single delivered run for each scenario serves as a check. The step writes `parcel_seasons`: one row per 2025 contract parcel, season and weather set, with its farm, weather cell, every model input and its expected log yield (433,800 rows, 42 columns, about 9 MB). The drill-down reaches farms and weather cells through it, and step 10 applies overrides to copies of it, so its columns are a contract between those steps.
+- `price_risk`: contracted volume is the 2025 contract area (the parcels declared for 2025 in parcel\_crop\_history\_and\_plan.csv) times the normal yield of today's farms, from the model on 1991–2020 weather. The shortfall in a season is the volume below that. Its extra cost is the shortfall times the contract price times the replacement premium, using `contract_prices_and_replacement_premiums.csv` and the import-premium paths in `transition_scenarios.csv` for each NGFS (transition) scenario, matched to its climate scenario by that file's physical\_pathway\_proxy column. The glossary lists the seven NGFS scenarios with their display names and climate scenarios. Extra emissions are the shortfall times the full import emission factor, because the domestic fields are farmed either way. The factors per region and crop are this step's `import_ef` param, from 0.31 t CO2e per tonne for carrot to 1.35 for turnip rape. They are copied from notebooks/results/import\_ef.json into the recipe, because a step reads no files, and each is recorded as an assumption whose source is section 1 of `c3_risk_pricing.ipynb`. Shortfalls are priced as market imports only; Foodhills supply is written as an insight (see Data model), not counted. Its calculation moves from section 6 of the notebook into `riskprice.py`, and reads the Finnish pea premium from the prices instead of the notebook's typed 0.55.
+- `compare_actions`: prices every approved action inside the run, as c4\_actions does: it applies the action's override to copies of the `parcel_seasons` rows, simulates the same seasons with the same random draws, and prices the result like the no-action case, writing one action option per action and scenario. Actions the model cannot price are refused with a reason, as actions\_not\_run.csv records. On the first run the five catalogue actions are already approved, by the Catalogue policy at seeding, so the step always has something to price. The catalogue and what each action changes are under Actions and what-if runs.
 
 Every assumption these steps use (prices, premiums, the 80% threshold, lever costs, ensemble size, random seeds) is a row in `assumption`, shown to the reviewer and changeable by starting a new run.
 
@@ -636,7 +653,7 @@ An action never edits the raw data. It is an override on the model's inputs, app
 
 |  | Data fix | Action |
 | --- | --- | --- |
-| What it changes | A raw record that is wrong | An assumption about the future: irrigated or not, which fields, sowing date |
+| What it changes | A raw record that is wrong | An assumption about the future: irrigated or not, which fields, how much heat a variety tolerates |
 | Where it applies | Before cleaning | At the model step, on a copy |
 | Result | The approved run is rebuilt | An action option priced by step 10, compared with no action in the same run |
 | Who approves | Data specialist | Sustainability specialist and sourcing |
@@ -644,8 +661,8 @@ An action never edits the raw data. It is an override on the model's inputs, app
 How an action gets from idea to report:
 
 1. Find the drivers. Step 10 splits each crop's loss into its weather drivers, for example heat at flowering for Finnish pea and warmer Mays for turnip rape.
-2. Propose candidates. The action proposer (an LLM agent) matches each driver to options in the action catalogue and writes each as an action spec whose override is one of the four typed operations below, with params that pass the schema. The catalogue starts from the package's lever list, plus adaptation actions that experts add. An idea no operation can express is flagged as new: it is listed for people to read, but it never runs as a what-if.
-3. Approve what to run. A person picks which candidates are worth running, in a review queue like the one for data fixes. The six catalogue actions are seeded already approved, recorded as decisions by the Catalogue policy, so the first run has actions to price; step 10 refuses any it cannot price, such as irrigation for Finnish pea.
+2. Propose candidates. The action proposer (an LLM agent) matches each driver to options in the action catalogue and writes each as an action spec whose override is one of the three typed operations below, with params that pass the schema. The catalogue starts from the package's lever list, plus adaptation actions that experts add. An idea no operation can express is flagged as new: it is listed for people to read, but it never runs as a what-if.
+3. Approve what to run. A person picks which candidates are worth running, in a review queue like the one for data fixes. The five catalogue actions are seeded already approved, recorded as decisions by the Catalogue policy, so the first run has actions to price; step 10 refuses any it cannot price, such as irrigation for Finnish pea.
 4. Run and price. Step 10 prices each approved action on copies of the projection inputs, inside the full run. The agent never calculates the effect.
 5. Draft the recommendation. The report drafter writes what to do, for which crops and regions, who should own it and what it buys, with every number a metric from step 10.
 6. Results review, as for the risk figures, then the report.
@@ -667,14 +684,15 @@ An action spec, as it sits in config/actions/catalogue.json and as the proposer 
 }
 ```
 
-The four operations the engine can run. Each is deterministic; the agent only chooses one and fills in its params.
+The three operations the engine can run. Each is deterministic; the agent only chooses one and fills in its params, and its schema offers only these three.
 
 | Operation | Params | What the engine does | Applies at |
 | --- | --- | --- | --- |
 | `relocate_area` | `share` (0 to 1) | Moves that share of the unit's 2025 contract area from the farms with the highest projected loss to those with the lowest | `project_yields` |
 | `set_irrigated` | `value` (0 or 1) | Sets the irrigation input for every farm in scope | `project_yields` |
-| `shift_sowing` | `days` (negative is earlier) | Moves the earliest sowing date and rebuilds the weather features | `weather_features` |
 | `scale_feature` | `feature` (a model feature), `factor` | Multiplies that stress measure, for example heat days at flowering, by the factor | `project_yields` |
+
+A fourth operation, `shift_sowing`, comes after the hackathon. It moves the earliest sowing date, which means rebuilding the weather features, so step 10 would need the weather as well. Its code stays in `actions.py` for `c4_actions.ipynb`.
 
 Which actions the data can price today:
 
@@ -682,7 +700,6 @@ Which actions the data can price today:
 | --- | --- | --- |
 | Move contract area to lower-risk fields | Replace part of the 2025 parcels with lower-loss farms or weather cells | Good for yields; recruitment cost is an assumption |
 | Irrigation for more potato and carrot growers | Set more farms to irrigated; cost from lever L24 | Partly: most of these growers irrigate already |
-| Earlier sowing | Move the earliest sowing date 7 or 14 days | Weak: no history sown that early, frost not modelled; a labelled what-if |
 | Heat-tolerant pea varieties | Reduce heat damage at flowering by an assumed share | Assumption only: no variety data |
 | Finland–Sweden pea sourcing | Not run; written as an insight by step 9 | Depends on Bjuv's capacity, which is unknown |
 
@@ -763,7 +780,7 @@ Five workstreams, one person each, build in parallel against four interfaces: th
 Order of milestones, each a gate for the next:
 
 1. Skeleton: steps 1–6 run through the runner and land in the schema.
-2. Numbers: steps 7–9 produce risk in euros for every crop, region and scenario.
+2. Numbers: steps 7–9 produce risk in euros for every crop, region and climate scenario, stored as metrics with lineage. Five endpoints work: result sets, metrics, metric sources, assumptions and Excel export. This gate is the API only; the Risk view screen is not part of it. It needs `low`, `high` and `action_id` on `metric`, `label` on `assumption`, openpyxl in the dependencies, and metrics and insights in `StepResult` and the runner.
 3. Review loop: a proposal approved in the app changes the cleaned tables on the next run.
 4. Actions and report: step 10 and the report run work end to end, and a published report links every number.
 5. Freeze: a recorded demo run and finished docs. No new features after this point.
@@ -784,7 +801,7 @@ Demo script:
 2. Start a run of recipe 1 from the raw package. It stops at step 4 and names the fixes waiting for review.
 3. Data review: open an agent proposal, read its evidence and explanation, approve it. Reject another and say why. Run again and show every step finish.
 4. Risk view: cost per year for each crop and region under the three climate scenarios. Click one figure and follow it down to farms, weather cells and the raw survey rows, including the correction just approved.
-5. Actions: compare irrigation, relocation, earlier sowing and heat-tolerant pea on cost and risk removed, and show the Foodhills supply insight.
+5. Actions: compare irrigation, relocation and heat-tolerant pea on cost and risk removed, and show the Foodhills supply insight.
 6. Report: open the interactive report, expand a number to its lineage, approve it and publish.
 7. The path to production: the same layers on Fabric, and the next recipes (GHG inventory, SBTi pathways, nature impacts in lake catchments) on the same base.
 

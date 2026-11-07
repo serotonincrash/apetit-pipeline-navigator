@@ -141,3 +141,61 @@ def add_rule(rule_id: str, author: str, version: int = 1) -> None:
                 backtest={"precision": 1.0, "recall": 0.9},
             )
         )
+
+
+def add_result_set(run_id: str, status: str = "draft") -> str:
+    result_set_id = ids.new_id("result_set")
+    with session_scope() as session:
+        session.add(m.ResultSet(result_set_id=result_set_id, run_id=run_id, status=status))
+    return result_set_id
+
+
+def add_metric(
+    result_set_id: str, name: str = "project_yields.yield_change_pct", **fields: Any
+) -> str:
+    metric_id = ids.new_id("metric")
+    values: dict[str, Any] = {"unit": "%", "value": -3.5, "lineage": [], "assumption_ids": []}
+    with session_scope() as session:
+        session.add(
+            m.Metric(
+                metric_id=metric_id,
+                result_set_id=result_set_id,
+                name=name,
+                **(values | fields),
+            )
+        )
+    return metric_id
+
+
+def add_assumption(run_id: str, step: str, name: str, value: Any = 1.0) -> str:
+    assumption_id = ids.new_id("assumption")
+    with session_scope() as session:
+        session.add(
+            m.Assumption(
+                assumption_id=assumption_id,
+                run_id=run_id,
+                step=step,
+                name=name,
+                label=f"Label of {name}",
+                value=value,
+                unit="share",
+                source="Test source.",
+            )
+        )
+    return assumption_id
+
+
+def add_decision(proposal_id: str, decision: str = "approve") -> None:
+    with session_scope() as session:
+        proposal = session.get(m.Proposal, proposal_id)
+        assert proposal is not None
+        session.add(
+            m.Decision(
+                decision_id=ids.new_id("decision"),
+                target_type="proposal",
+                target_id=proposal.proposal_key,
+                decision=decision,
+                reviewer="A. Reviewer",
+                run_id=proposal.run_id,
+            )
+        )

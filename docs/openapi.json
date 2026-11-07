@@ -504,7 +504,7 @@
           "runs"
         ],
         "summary": "Export Artifact",
-        "description": "The filtered rows of a table as an Excel file.",
+        "description": "The filtered rows of a table as an Excel file, up to 200000 rows.",
         "operationId": "exportArtifact",
         "parameters": [
           {
@@ -558,22 +558,12 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
+          "422": {
+            "description": "Too many rows match. Add filters.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1121,16 +1111,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1287,16 +1267,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1350,16 +1320,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorMessage"
-                }
-              }
-            }
-          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1379,7 +1339,7 @@
           "risk"
         ],
         "summary": "List Assumptions",
-        "description": "Assumptions behind a result set or run. Changing one means queuing a run with overrides.",
+        "description": "Assumptions behind a result set or run, by step and name. Give either id.",
         "operationId": "listAssumptions",
         "parameters": [
           {
@@ -1430,8 +1390,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not built yet. The message names the milestone.",
+          "404": {
+            "description": "No record with that id.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2600,6 +2560,10 @@
             "type": "string",
             "title": "Name"
           },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
           "value": {
             "title": "Value"
           },
@@ -2633,6 +2597,7 @@
           "run_id",
           "step",
           "name",
+          "label",
           "value",
           "unit",
           "source",
@@ -3024,6 +2989,28 @@
             "type": "number",
             "title": "Value"
           },
+          "low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Low"
+          },
+          "high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "High"
+          },
           "region": {
             "anyOf": [
               {
@@ -3079,6 +3066,17 @@
             ],
             "title": "Period"
           },
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
           "assumption_ids": {
             "items": {
               "type": "string"
@@ -3094,11 +3092,14 @@
           "name",
           "unit",
           "value",
+          "low",
+          "high",
           "region",
           "crop",
           "scenario",
           "ngfs_scenario",
           "period",
+          "action_id",
           "assumption_ids"
         ],
         "title": "Metric"

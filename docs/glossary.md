@@ -15,7 +15,7 @@ is what people see; the "In code" column is the name in tables, columns and func
 | Crop | `crop` (`pea`, `turnip_rape`, `potato`, `carrot`, `spinach`) | Pea, Turnip rape, Potato, Carrot, Spinach | The five contract crops |
 | Weather cell | `cell`, `cell_id` | Weather cell | One square of the weather grid |
 | Driver | `driver` | Driver | A weather cause of loss, such as heat at flowering or drought in the sensitive stage |
-| Climate scenario | `scenario` (`historical`, `ssp126`, `ssp245`, `ssp585`) | Past weather, Low emissions (SSP1-2.6), Middle (SSP2-4.5), High emissions (SSP5-8.5) | The SSP weather a number uses |
+| Climate scenario | `scenario` (`historical`, `baseline`, `ssp126`, `ssp245`, `ssp585`) | Past weather, 1991–2020 weather, Low emissions (SSP1-2.6), Middle (SSP2-4.5), High emissions (SSP5-8.5) | The SSP weather a number uses. `baseline` is past weather with today's farms, the projection's comparison set |
 | Transition scenario | `ngfs_scenario` | See Transition scenarios below | The NGFS scenario that sets import premiums |
 | Crop calendar | `crop_params` | Crop calendar | Sowing trigger, maturity degree-days and sensitive window for a region and crop |
 | Shortfall | `shortfall` | Shortfall | Contracted volume minus what the farms deliver in a season, when positive |
@@ -61,5 +61,7 @@ The package's NGFS scenarios, the name to show for each, and the climate scenari
 | `fragmented_world` | Fragmented World | Middle (SSP2-4.5) |
 | `ndcs` | Nationally Determined Contributions (NDCs) | Middle (SSP2-4.5) |
 | `current_policies` | Current Policies | High emissions (SSP5-8.5) |
+
+The code `today` is shown as "Today's premiums". It pairs with the climate scenario `baseline` and sits outside the seven rows above.
 
 "Scenario" alone is never used in app copy or reports. Say "climate scenario" or "transition scenario".

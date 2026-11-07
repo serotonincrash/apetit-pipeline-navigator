@@ -57,7 +57,7 @@ def list_proposals(
         query.order_by(m.Proposal.rule_id, m.Proposal.record_key, m.Proposal.field)
     ).all()
     latest = latest_decisions(session, "proposal", (p.proposal_key for p in proposals))
-    items = [_proposal_out(p, latest.get(p.proposal_key)) for p in proposals]
+    items = [proposal_out(p, latest.get(p.proposal_key)) for p in proposals]
     if proposal_status:
         items = [p for p in items if p.status == proposal_status]
     return schemas.ProposalList(
@@ -73,7 +73,7 @@ def get_proposal(proposal_id: str, session: SessionDep) -> schemas.ProposalDetai
     latest = history[-1] if history else None
     return schemas.ProposalDetail.model_validate(
         {
-            **_proposal_out(proposal, latest).model_dump(),
+            **proposal_out(proposal, latest).model_dump(),
             "evidence": proposal.evidence,
             "explanation": proposal.explanation,
             "decisions": [schemas.Decision.model_validate(d) for d in history],
@@ -169,7 +169,7 @@ def _decision(
     )
 
 
-def _proposal_out(proposal: m.Proposal, decision: m.Decision | None) -> schemas.Proposal:
+def proposal_out(proposal: m.Proposal, decision: m.Decision | None) -> schemas.Proposal:
     return schemas.Proposal.model_validate(
         {
             "proposal_id": proposal.proposal_id,

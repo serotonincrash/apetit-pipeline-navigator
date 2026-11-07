@@ -50,6 +50,29 @@ DECISION_COLUMNS = ["proposal_key", "decision", "reviewer", "comment"]
 # Columns of StepResult.rules: one row per rule, with its backtest on labelled history.
 RULE_COLUMNS = ["rule_id", "version", "description", "author", "backtest"]
 
+# Columns of StepResult.metrics: one result number per row. The step names its tables and
+# assumptions; the runner swaps in artifact ids and assumption ids when it stores them.
+METRIC_COLUMNS = [
+    "key",
+    "name",
+    "unit",
+    "value",
+    "low",
+    "high",
+    "region",
+    "crop",
+    "scenario",
+    "ngfs_scenario",
+    "period",
+    "action_id",
+    "lineage",
+    "assumptions",
+]
+
+# Columns of StepResult.insights: a finding whose numbers are `{{metric:<key>}}` tokens in
+# `text`, and the keys of the metrics it cites.
+INSIGHT_COLUMNS = ["title", "text", "metric_keys"]
+
 # The runner passes this run's proposals to later steps under this input name, with a `status`
 # column: open, approved, rejected or flag.
 PROPOSALS_INPUT = "proposals"
@@ -83,9 +106,13 @@ class RunContext:
 
 @dataclass(frozen=True)
 class AssumptionUse:
-    """An input value a person can question, as a step used it."""
+    """An input value a person can question, as a step used it.
+
+    `name` is `<step>.<param>`; `label` is the plain words the app shows instead.
+    """
 
     name: str
+    label: str
     value: Any
     unit: str
     source: str
@@ -97,6 +124,8 @@ class StepResult:
     proposals: pd.DataFrame | None = None
     decisions: pd.DataFrame | None = None
     rules: pd.DataFrame | None = None
+    metrics: pd.DataFrame | None = None
+    insights: pd.DataFrame | None = None
     assumptions: list[AssumptionUse] = field(default_factory=list[AssumptionUse])
 
 

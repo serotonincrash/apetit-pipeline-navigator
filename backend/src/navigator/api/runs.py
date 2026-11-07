@@ -2,13 +2,20 @@
 
 import asyncio
 import hashlib
+import io
 import json
+import math
+import re
 from collections.abc import AsyncIterator
-from typing import Annotated, Any
+from datetime import UTC, date, datetime, time
+from typing import Annotated, Any, cast
 
+import numpy as np
+import pandas as pd
 from fastapi import APIRouter, Header, Query, Response, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
+from openpyxl import Workbook
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -17,16 +24,15 @@ from navigator.api import schemas
 from navigator.api.dependencies import PersonaDep, SessionDep
 from navigator.api.errors import (
     BAD_PERSONA,
-    NOT_BUILT,
     NOT_FOUND,
     invalid,
-    not_built,
     not_found,
 )
+from navigator.api.schemas import ErrorMessage
 from navigator.db import models as m
 from navigator.db.session import session_scope
 from navigator.recipes.registry import RECIPES
-from navigator.storage.query import read_rows
+from navigator.storage.query import read_all_rows, read_rows
 
 router = APIRouter(prefix="/api", tags=["runs"])
 
@@ -36,6 +42,10 @@ POLL_SECONDS = 1.0
 # A comment line after this many quiet polls keeps proxies from closing the stream.
 KEEPALIVE_POLLS = 15
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+# Above this an export is refused, so one request cannot read a whole large table into memory.
+EXPORT_MAX_ROWS = 200_000
+_ILLEGAL_XML = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+_ILLEGAL_SHEET = re.compile(r"[\[\]:*?/\\]")
 
 
 class EventStreamResponse(StreamingResponse):
@@ -149,7 +159,7 @@ def get_run(run_id: str, session: SessionDep) -> schemas.RunDetail:
             "params": run.params,
             "params_hash": run.params_hash,
             "steps": [_step_run_out(s) for s in step_runs],
-            "artifacts": [_artifact_out(a, step_names[a.step_run_id]) for a in artifacts],
+            "artifacts": [artifact_out(a, step_names[a.step_run_id]) for a in artifacts],
         }
     )
 
@@ -245,8 +255,8 @@ def _format_event(event: m.RunEvent) -> str:
 @router.get("/artifacts/{artifact_id}", operation_id="getArtifact", responses=NOT_FOUND)
 def get_artifact(artifact_id: str, session: SessionDep) -> schemas.Artifact:
     """A table's metadata: the step that wrote it, its layer, row count and content hash."""
-    artifact, step = _find_artifact(session, artifact_id)
-    return _artifact_out(artifact, step)
+    artifact, step = find_artifact(session, artifact_id)
+    return artifact_out(artifact, step)
 
 
 FilterQuery = Annotated[
@@ -275,8 +285,8 @@ def list_artifact_rows(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> schemas.ArtifactRows:
     """Rows of a table, filtered and paged, in the order the step wrote them."""
-    artifact, _ = _find_artifact(session, artifact_id)
-    where, parameters = _row_filter(artifact, filters or [])
+    artifact, _ = find_artifact(session, artifact_id)
+    where, parameters = row_filter(artifact, filters or [])
     frame, total = read_rows(artifact.uri, where, parameters, limit=limit, offset=offset)
     rows: list[dict[str, Any]] = json.loads(frame.to_json(orient="records", date_format="iso"))
     return schemas.ArtifactRows(
@@ -296,15 +306,68 @@ def list_artifact_rows(
     responses={
         200: {"content": {XLSX: {}}, "description": "The filtered rows as an Excel file."},
         **NOT_FOUND,
-        **NOT_BUILT,
+        422: {"model": ErrorMessage, "description": "Too many rows match. Add filters."},
     },
 )
-def export_artifact(artifact_id: str, filters: FilterQuery = None) -> Response:
-    """The filtered rows of a table as an Excel file."""
-    raise not_built("Excel export comes in milestone 2, with the risk numbers.")
+def export_artifact(artifact_id: str, session: SessionDep, filters: FilterQuery = None) -> Response:
+    """The filtered rows of a table as an Excel file, up to 200000 rows."""
+    artifact, _ = find_artifact(session, artifact_id)
+    where, parameters = row_filter(artifact, filters or [])
+    _, total = read_rows(artifact.uri, where, parameters, limit=0)
+    if total > EXPORT_MAX_ROWS:
+        raise invalid(
+            ("query", "filter"),
+            f"{total} rows match, and an export holds at most {EXPORT_MAX_ROWS}. "
+            "Add filters to narrow the table down.",
+        )
+    frame = read_all_rows(artifact.uri, where, parameters)
+    return Response(
+        build_workbook(artifact.name, frame),
+        media_type=XLSX,
+        headers={"Content-Disposition": f'attachment; filename="{export_filename(artifact.name)}"'},
+    )
 
 
-def _find_artifact(session: Session, artifact_id: str) -> tuple[m.Artifact, str]:
+def export_filename(name: str) -> str:
+    """A safe file name for the download, from the table's name."""
+    stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", name).strip("._") or "table"
+    return f"{stem}.xlsx"
+
+
+def xlsx_cell(value: Any) -> Any:
+    """A value openpyxl can write.
+
+    numpy types become Python ones, missing values become empty, and times lose their time zone
+    (written as UTC), because Excel has none.
+    """
+    if isinstance(value, np.generic):
+        value = cast(Any, value.item())
+    if value is None or value is pd.NaT:
+        return None
+    if isinstance(value, float):
+        return None if math.isnan(value) or math.isinf(value) else value
+    if isinstance(value, datetime):
+        if value.tzinfo is not None:
+            value = value.astimezone(UTC).replace(tzinfo=None)
+        return value.to_pydatetime() if isinstance(value, pd.Timestamp) else value
+    if isinstance(value, bool | int | date | time):
+        return value
+    return _ILLEGAL_XML.sub("", value if isinstance(value, str) else str(value))
+
+
+def build_workbook(name: str, frame: pd.DataFrame) -> bytes:
+    """An .xlsx with one sheet: a header row of the column names, then the rows."""
+    workbook = Workbook(write_only=True)
+    sheet = workbook.create_sheet(_ILLEGAL_SHEET.sub("_", name)[:31] or "table")
+    sheet.append([_ILLEGAL_XML.sub("", str(c)) for c in frame.columns])
+    for row in frame.itertuples(index=False, name=None):
+        sheet.append([xlsx_cell(v) for v in row])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+def find_artifact(session: Session, artifact_id: str) -> tuple[m.Artifact, str]:
     row = session.execute(
         select(m.Artifact, m.StepRun.step)
         .join(m.StepRun, m.StepRun.step_run_id == m.Artifact.step_run_id)
@@ -315,7 +378,7 @@ def _find_artifact(session: Session, artifact_id: str) -> tuple[m.Artifact, str]
     return row[0], row[1]
 
 
-def _row_filter(artifact: m.Artifact, filters: list[str]) -> tuple[str, list[Any]]:
+def row_filter(artifact: m.Artifact, filters: list[str]) -> tuple[str, list[Any]]:
     """A DuckDB condition over the artifact's own columns, with the values as parameters."""
     values: dict[str, list[str]] = {}
     for item in filters:
@@ -349,7 +412,7 @@ def _step_run_out(step_run: m.StepRun) -> schemas.StepRun:
     return out
 
 
-def _artifact_out(artifact: m.Artifact, step: str) -> schemas.Artifact:
+def artifact_out(artifact: m.Artifact, step: str) -> schemas.Artifact:
     return schemas.Artifact.model_validate(
         {
             "artifact_id": artifact.artifact_id,

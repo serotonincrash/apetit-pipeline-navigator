@@ -8,50 +8,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from navigator.recipes.core import Artifact, RunContext
-from navigator.recipes.farm_climate_risk import RECIPE
-from navigator.steps.tune_calendar import tune_calendar
-from navigator.steps.weather_features import weather_features
 from tests.golden.fingerprint import as_read_from_csv, assert_matches
 
 pytestmark = pytest.mark.golden
 
 RESULTS = Path(__file__).parents[3] / "notebooks" / "results"
-
-
-def recipe_params(name: str) -> dict:
-    return dict(next(s for s in RECIPE.steps if s.name == name).params)
-
-
-@pytest.fixture(scope="session")
-def upstream(clean_tables: dict[str, Artifact]) -> dict[str, Artifact]:
-    """The tables steps 5 and 6 read, as steps 1 to 4 wrote them."""
-    names = (
-        "weather_daily",
-        "erp_purchase_lines",
-        "c1_template",
-        "training_table",
-        "parcel_year_contract",
-    )
-    return {name: clean_tables[name] for name in names}
-
-
-@pytest.fixture(scope="session")
-def calendar(ctx: RunContext, upstream: dict[str, Artifact]) -> dict[str, pd.DataFrame]:
-    names = ("weather_daily", "training_table", "parcel_year_contract", "erp_purchase_lines")
-    result = tune_calendar(ctx, {n: upstream[n] for n in names}, recipe_params("tune_calendar"))
-    return {t.name: t.frame for t in result.tables}
-
-
-@pytest.fixture(scope="session")
-def features(
-    ctx: RunContext, upstream: dict[str, Artifact], calendar: dict[str, pd.DataFrame]
-) -> dict[str, pd.DataFrame]:
-    names = ("weather_daily", "training_table", "parcel_year_contract", "c1_template")
-    inputs = {n: upstream[n] for n in names}
-    inputs["crop_params"] = Artifact("crop_params", "feature", calendar["crop_params"])
-    result = weather_features(ctx, inputs, recipe_params("weather_features"))
-    return {t.name: t.frame for t in result.tables}
 
 
 def test_calendar_choice(calendar: dict[str, pd.DataFrame]) -> None:
