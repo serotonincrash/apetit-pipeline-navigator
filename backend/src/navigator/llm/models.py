@@ -153,7 +153,10 @@ def default_model() -> TextModel:
     settings = get_settings()
     if settings.llm_mode == "opencode":
         return OpenCodeModel(
-            settings.opencode_api_key, settings.opencode_model, settings.opencode_base_url
+            settings.opencode_api_key,
+            settings.opencode_model,
+            settings.opencode_base_url,
+            timeout=settings.opencode_timeout_seconds,
         )
     if settings.llm_mode == "gemini":
         return GeminiModel(settings.gemini_api_key, settings.gemini_model)

@@ -86,6 +86,7 @@ RECIPE = Recipe(
                 # The run request switches this on; see `run_fix_proposer` in POST /api/runs.
                 "enabled": False,
                 "tables": ["energy_meter_readings"],
+                "concurrency": 1,
             },
         ),
         StepSpec(

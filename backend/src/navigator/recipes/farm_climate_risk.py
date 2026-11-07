@@ -110,6 +110,8 @@ RECIPE = Recipe(
                     "erp_purchase_lines",
                 ],
                 "rule_params": RULE_PARAMS,
+                # Requests sent at once, one per table.
+                "concurrency": 5,
             },
         ),
         StepSpec(

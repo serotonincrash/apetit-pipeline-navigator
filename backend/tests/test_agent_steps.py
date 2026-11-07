@@ -210,7 +210,12 @@ def propose(
         ),
         PROPOSALS_INPUT: Artifact(PROPOSALS_INPUT, "result", covered_by_rules()),
     }
-    params = {"enabled": enabled, "tables": ["farm_survey"], "rule_params": RULE_PARAMS}
+    params = {
+        "enabled": enabled,
+        "tables": ["farm_survey"],
+        "rule_params": RULE_PARAMS,
+        "concurrency": 1,
+    }
     with event_sink(lambda type_, payload: notes.append((type_, payload["annotation"]))):
         result = propose_fixes(ctx, inputs, params)
     return result, notes

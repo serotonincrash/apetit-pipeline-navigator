@@ -7,6 +7,7 @@ record and values is rejected here, and the rejection is reported in the step's 
 
 import math
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import pandas as pd
@@ -113,7 +114,8 @@ def propose_fixes(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
             "Adds no proposals because this run was queued without the fix proposer.",
         ):
             return StepResult(tables=[])
-    if ctx.llm is None:
+    llm = ctx.llm
+    if llm is None:
         raise ValueError("The fix proposer needs the language model wrapper, which this run lacks.")
 
     raw = {name: inputs[name].frame for name in params["tables"]}
@@ -128,17 +130,24 @@ def propose_fixes(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
     )
     library = rule_library(by_rules, validation, descriptions)
 
-    answers: dict[str, LlmResult[FixProposals]] = {}
     with section(
         "ask for findings",
-        "Sends each raw table with its statistics, sample rows, the rules and the labelled "
-        "errors to the fix proposer, one table at a time.",
+        "Sends every raw table at once, each with its statistics, sample rows, the rules and the "
+        "labelled errors, to the fix proposer.",
     ):
-        for table, frame in raw.items():
-            prompt = fix_proposer.build_prompt(
+        prompts = {
+            table: fix_proposer.build_prompt(
                 table, frame, library, by_rules[by_rules["table"].eq(table)], labels
             )
-            answers[table] = fix_proposer.propose(ctx.llm, table, prompt)
+            for table, frame in raw.items()
+        }
+
+        def ask(table: str) -> LlmResult[FixProposals]:
+            return fix_proposer.propose(llm, table, prompts[table])
+
+        with ThreadPoolExecutor(max_workers=params["concurrency"]) as pool:
+            replies = list(pool.map(ask, prompts))
+        answers: dict[str, LlmResult[FixProposals]] = dict(zip(prompts, replies, strict=True))
 
     covered = set(zip(by_rules["record_key"], by_rules["field"], strict=True))
     accepted: list[dict[str, Any]] = []

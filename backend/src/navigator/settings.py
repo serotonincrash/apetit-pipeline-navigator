@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     opencode_api_key: str = ""
     opencode_model: str = ""
     opencode_base_url: str = "https://opencode.ai/inference/go/openai/v1"
+    # The fix proposer's prompts carry whole-table statistics and samples, and its answers take
+    # minutes; an explanation takes seconds, so this only matters when a call hangs.
+    opencode_timeout_seconds: float = 300.0
     gemini_api_key: str = ""
     gemini_model: str = ""
 
