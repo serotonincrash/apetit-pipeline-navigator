@@ -8,6 +8,9 @@ import {
 import { getPersona } from "@/api/persona";
 import { SourcesProvider } from "@/components/SourcesContext";
 import { TopBar } from "@/components/TopBar";
+import { ActionsPage, type ActionsSearch } from "@/features/actions/ActionsPage";
+import { ReportPage } from "@/features/report/ReportPage";
+import { ReportRedirect } from "@/features/report/ReportRedirect";
 import { DataReviewPage, type ReviewSearch } from "@/features/review/DataReviewPage";
 import { RiskPage, type RiskSearch } from "@/features/risk/RiskPage";
 import { RunDetailPage } from "@/features/runs/RunDetailPage";
@@ -90,7 +93,42 @@ const riskRoute = createRoute({
   },
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, runsRoute, runRoute, reviewRoute, riskRoute]);
+const actionsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/actions",
+  validateSearch: (search: Record<string, unknown>): ActionsSearch => ({
+    set: text(search.set),
+    scenario: text(search.scenario),
+  }),
+  component: function ActionsRoute() {
+    return <ActionsPage search={actionsRoute.useSearch()} />;
+  },
+});
+
+const reportIndexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/report",
+  component: ReportRedirect,
+});
+
+const reportRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/report/$resultSetId",
+  component: function ReportRoute() {
+    return <ReportPage resultSetId={reportRoute.useParams().resultSetId} />;
+  },
+});
+
+const routeTree = rootRoute.addChildren([
+  actionsRoute,
+  indexRoute,
+  runsRoute,
+  runRoute,
+  reviewRoute,
+  riskRoute,
+  reportIndexRoute,
+  reportRoute,
+]);
 
 export const router = createRouter({ routeTree });
 

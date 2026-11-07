@@ -4,9 +4,10 @@ A report run has no steps and creates no result set. Its draft is stored only wh
 paragraph passed its checks, in the same transaction that marks the run succeeded.
 """
 
+import re
 from collections import Counter
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -163,6 +164,35 @@ def loss_drivers(session: Session, run_id: str) -> list[drafter.DriverFact]:
     ]
 
 
+_RECIPE_SETTING = re.compile(r"^recipe \w+, \w+ params$")
+
+
+def _value_text(value: Any) -> str:
+    """An assumption value in words: rounded numbers, pairs as "name value", none as not known."""
+    if value is None:
+        return "not known"
+    if isinstance(value, bool | int):
+        return str(value)
+    if isinstance(value, float):
+        return f"{value:,.0f}" if abs(value) >= 100 else f"{value:.3g}"
+    if isinstance(value, dict):
+        pairs = cast(dict[str, Any], value)
+        return ", ".join(f"{k.replace('_', ' ')} {_value_text(v)}" for k, v in pairs.items())
+    if isinstance(value, list):
+        return ", ".join(_value_text(v) for v in cast(list[Any], value))
+    return str(value)
+
+
+def _agent_name(agent: str) -> str:
+    return agent.replace("-", " ").replace("_", " ").capitalize()
+
+
+def _assumption_line(label: str, value: Any, unit: str, source: str) -> str:
+    source = "a recipe setting" if _RECIPE_SETTING.match(source) else source
+    amount = "not known" if value is None else f"{_value_text(value)} {unit}".strip()
+    return f"- {label}: {amount}, from {source}"
+
+
 def method_paragraphs(
     session: Session, result_set_id: str, report_run_id: str
 ) -> list[dict[str, Any]]:
@@ -198,7 +228,7 @@ def method_paragraphs(
 
     assumptions = (
         "\n".join(
-            f"- {a.label}: {a.value} {a.unit}, from {a.source}"
+            _assumption_line(a.label, a.value, a.unit, a.source)
             for a in session.scalars(
                 select(m.Assumption)
                 .where(m.Assumption.run_id == run_id)
@@ -211,18 +241,19 @@ def method_paragraphs(
     calls = Counter(
         tuple(row)
         for row in session.execute(
-            select(m.LlmCall.agent, m.LlmCall.model, m.LlmCall.prompt_version).where(
+            select(m.LlmCall.agent, m.LlmCall.prompt_version).where(
                 m.LlmCall.run_id.in_([run_id, report_run_id]),
                 m.LlmCall.status.in_(["ok", "fake model"]),
             )
         ).all()
     )
+    # The model's name stays in the call log; the report names only the agent and prompt.
     models = (
         "\n".join(
-            f"- {agent}: model {model}, prompt version {version}, {count} calls"
-            for (agent, model, version), count in sorted(calls.items())
+            f"- {_agent_name(agent)}: prompt version {version}, {count} texts"
+            for (agent, version), count in sorted(calls.items())
         )
-        or "No text was written by a model."
+        or "No text was written by the assistant."
     )
 
     return [
@@ -231,6 +262,6 @@ def method_paragraphs(
             ("Data sources", sources),
             ("Corrections approved", corrections),
             ("Assumptions used", assumptions),
-            ("Models and prompt versions", models),
+            ("Assistant prompts", models),
         ]
     ]

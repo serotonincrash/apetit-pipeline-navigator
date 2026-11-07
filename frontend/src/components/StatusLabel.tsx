@@ -11,6 +11,8 @@ const COLOURS: Record<string, string> = {
   open: "text-status-open",
   approved: "text-status-approved",
   rejected: "text-status-rejected",
+  recommended: "text-status-approved",
+  considered: "text-status-open",
   flag: "text-status-flag",
   draft: "text-status-queued",
   in_review: "text-status-running",

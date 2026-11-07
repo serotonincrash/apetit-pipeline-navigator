@@ -128,10 +128,11 @@ def test_a_draft_is_requested_written_by_the_worker_and_read_back(client: TestCl
         "Data sources",
         "Corrections approved",
         "Assumptions used",
-        "Models and prompt versions",
+        "Assistant prompts",
     ]
     assert "Data check R1: 1 fixes approved by A. Reviewer" in built[1]["text"]
-    assert "report-drafter: model fake" in built[3]["text"]
+    assert "Report drafter: prompt version" in built[3]["text"]
+    assert "fake" not in built[3]["text"]
     assert "{{metric:met_" in " ".join(p["text"] for p in drafted)
     assert set(report["metrics"]) >= {i["metric_ids"][0] for i in report["insights"]}
     with session_scope() as session:

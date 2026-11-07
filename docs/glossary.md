@@ -43,7 +43,7 @@ is what people see; the "In code" column is the name in tables, columns and func
 | Lineage | `lineage` | Sources | The tables and filter that select the rows behind a metric |
 | Assumption | `assumption` | Assumption | An input value a person can question and change |
 | Action | `action_definition` | Action | A catalogue or agent-proposed spec with one typed override, priced as a what-if |
-| Action option | `action_option` | Action option | An action's priced what-if result: cost, risk reduced and emissions change |
+| Action option | `action_option` | Action option | An action's priced what-if result: cost, risk removed and emissions change |
 | What-if run | `kind = "what_if"` | What-if | A run that starts from an approved run with one action applied |
 | Insight | `insight` | Insight | A finding that is not a priced metric, with numbers only as metric tokens |
 | Catalogue policy | `reviewer = "Catalogue policy"` | Approved by catalogue policy | Approval of the seeded catalogue actions, so the first run has actions to price |

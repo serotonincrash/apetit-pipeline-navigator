@@ -8,7 +8,7 @@ const LINK = "px-3 py-3 text-muted-foreground hover:text-foreground";
 const ACTIVE = { className: "px-3 py-3 font-medium text-foreground border-b-2 border-primary" };
 const ANY_SEARCH = { includeSearch: false };
 
-type Screen = "runs" | "review" | "risk";
+type Screen = "runs" | "review" | "risk" | "actions" | "report";
 
 const TABS: Record<Screen, ReactNode> = {
   runs: (
@@ -27,17 +27,27 @@ const TABS: Record<Screen, ReactNode> = {
       Data review
     </Link>
   ),
+  actions: (
+    <Link to="/actions" className={LINK} activeProps={ACTIVE} activeOptions={ANY_SEARCH}>
+      Actions
+    </Link>
+  ),
   risk: (
     <Link to="/risk" className={LINK} activeProps={ACTIVE} activeOptions={ANY_SEARCH}>
       Risk view
+    </Link>
+  ),
+  report: (
+    <Link to="/report" className={LINK} activeProps={ACTIVE} activeOptions={ANY_SEARCH}>
+      Report
     </Link>
   ),
 };
 
 /** Each role's own screens come first. Both roles can read every screen. */
 const SCREENS_BY_ROLE: Record<PersonaRole, { own: Screen[]; other: Screen[] }> = {
-  data_specialist: { own: ["review", "runs"], other: ["risk"] },
-  sustainability_specialist: { own: ["risk"], other: ["review", "runs"] },
+  data_specialist: { own: ["review", "runs"], other: ["risk", "actions", "report"] },
+  sustainability_specialist: { own: ["risk", "actions", "report"], other: ["review", "runs"] },
 };
 
 function tabs(screens: Screen[]) {
@@ -47,7 +57,7 @@ function tabs(screens: Screen[]) {
 export function TopBar() {
   const { own, other } = SCREENS_BY_ROLE[usePersona().role];
   return (
-    <header className="flex items-center justify-between border-b px-6">
+    <header className="flex items-center justify-between border-b px-6 print:hidden">
       <nav aria-label="Main" className="flex items-center">
         <span className="mr-4 font-semibold">Climate and nature navigator</span>
         {tabs(own)}

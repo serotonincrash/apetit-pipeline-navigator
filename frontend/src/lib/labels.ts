@@ -129,6 +129,7 @@ const MEASURES: Record<string, string> = {
   "price_risk.expected_cost_eur": "Expected cost per year",
   "price_risk.one_in_ten_cost_eur": "Cost in a 1-in-10 bad year",
   "price_risk.expected_import_tco2e": "Extra emissions per year",
+  "compare_actions.risk_removed_eur": "Risk removed per year",
   "price_risk.climate_added_cost_eur": "Cost added by climate change",
   "project_yields.bad_year_chance": "Chance of a bad year",
   "project_yields.yield_change_pct": "Yield change",
@@ -151,6 +152,8 @@ export const STATUS_LABELS: Record<string, string> = {
   in_review: "In review",
   published: "Published",
   superseded: "Superseded",
+  recommended: "Recommended",
+  considered: "Considered",
 };
 
 const DECISIONS: Record<string, string> = {

@@ -12,11 +12,14 @@ export function LineageTableRows({ source }: { source: MetricSource }) {
       <p className="mb-2 mt-0.5 text-muted-foreground">
         {count(source.row_count)} contributing rows of {count(source.artifact.row_count)}
       </p>
-      <ArtifactRowsTable
-        artifactId={source.artifact.artifact_id}
-        filters={source.filters}
-        knownTotal={source.row_count}
-      />
+      {/* A printed report keeps the filter and the count; the rows stay in the app. */}
+      <div className="print:hidden">
+        <ArtifactRowsTable
+          artifactId={source.artifact.artifact_id}
+          filters={source.filters}
+          knownTotal={source.row_count}
+        />
+      </div>
     </section>
   );
 }
