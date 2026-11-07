@@ -1,6 +1,10 @@
 """Put the demo VM back in its prepared state after people have used it.
 
     python -m navigator.demo reset --reviewer "A. Reviewer"
+    python -m navigator.demo start
+
+`start` only empties and reseeds, leaving no runs, so a recording can begin from the raw package
+and its first run stops at the data check with fixes waiting for review.
 
 Empties the database and the bucket, reseeds the package and the action catalogue, then goes
 through the review loop once for each recipe through the API, as a person would: queue a full
@@ -91,7 +95,8 @@ def empty_tables() -> None:
         session.execute(text(f"TRUNCATE {names} RESTART IDENTITY CASCADE"))
 
 
-def reset(api_url: str, reviewer: str, timeout_s: float) -> None:
+def reseed() -> None:
+    """Empty the tables and the bucket, then load the package and the action catalogue again."""
     settings = get_settings()
     empty_tables()
     empty_bucket(settings.s3_bucket)
@@ -99,6 +104,9 @@ def reset(api_url: str, reviewer: str, timeout_s: float) -> None:
     actions = load_catalogue(Path(settings.catalogue_path))
     log.info("demo reseeded", extra={"files": files, "actions": actions})
 
+
+def reset(api_url: str, reviewer: str, timeout_s: float) -> None:
+    reseed()
     api = Api(api_url, reviewer)
     for recipe_id, rule_ids in CHECKED_RULES.items():
         first = api.run_until_finished(recipe_id, timeout_s)
@@ -126,9 +134,13 @@ def main() -> None:
     reset_parser.add_argument("--reviewer", required=True, help="the name recorded on approvals")
     reset_parser.add_argument("--api", default="http://localhost:8000")
     reset_parser.add_argument("--timeout", type=float, default=900.0, help="seconds per run")
+    sub.add_parser("start", help="empty and reseed with no runs, for recording the demo")
     args = parser.parse_args()
     configure(get_settings().log_level)
-    reset(args.api, args.reviewer, args.timeout)
+    if args.action == "start":
+        reseed()
+    else:
+        reset(args.api, args.reviewer, args.timeout)
 
 
 if __name__ == "__main__":
