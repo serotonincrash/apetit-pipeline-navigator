@@ -438,7 +438,7 @@ def rules_table(backtests: list[dict[str, Any]], descriptions: Mapping[str, str]
     kind="propose",
     summary=(
         "Checks the Finnish farm survey and the farm registry with rules R1 to R5, proposes fixes "
-        "or flags, and scores each rule on the 2023-24 answer key. A person decides every fix."
+        "or flags, and scores each rule on the 2023-24 known issues. A person decides every fix."
     ),
 )
 def check_farm_data(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> StepResult:
@@ -491,7 +491,7 @@ def check_farm_data(ctx: RunContext, inputs: dict[str, Artifact], params: Params
 
     with section(
         "backtest rules",
-        "Scores each rule on the 2023 and 2024 answer key: how many flagged records were real "
+        "Scores each rule on the 2023 and 2024 known issues: how many flagged records were real "
         "errors, and whether the fixed values match.",
     ):
         labels = inputs["dev_issue_labels"].frame

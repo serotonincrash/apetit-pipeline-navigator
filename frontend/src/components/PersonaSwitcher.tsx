@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useListPersonas } from "@/api/generated/client";
 import type { PersonaRole } from "@/api/generated/model";
@@ -34,6 +35,7 @@ function NameForm({ initial, onDone }: { initial: string; onDone: (name: string)
 
 /** The role picker and the name recorded on decisions. The name is asked for once. */
 export function PersonaSwitcher() {
+  const navigate = useNavigate();
   const persona = usePersona();
   const asking = useAskingForName();
   const personas = useListPersonas();
@@ -49,7 +51,10 @@ export function PersonaSwitcher() {
         value={persona.role}
         onChange={(event) => {
           const chosen = options.find((item) => item.role === event.target.value);
-          if (chosen) setPersona({ ...persona, role: chosen.role });
+          if (!chosen) return;
+          setPersona({ ...persona, role: chosen.role });
+          // The index route sends each role to the screen it works from.
+          void navigate({ to: "/" });
         }}
       >
         {options.map((item) => (

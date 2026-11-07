@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { getListProposalsQueryKey, useDecideProposals } from "@/api/generated/client";
+import { useDecideProposals } from "@/api/generated/client";
 import { requireName } from "@/api/persona";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
@@ -9,53 +9,64 @@ import { messageOf } from "@/lib/errors";
 import { count } from "@/lib/format";
 
 interface BulkDecisionProps {
-  ruleId: string;
+  /** Where the fixes come from, as the end of a sentence: "from data check R1". */
+  scope: string;
   openFixIds: string[];
 }
 
-/** Approve or reject all open fixes of one data check, after a confirmation on the page. */
-export function BulkDecision({ ruleId, openFixIds }: BulkDecisionProps) {
+/** Approve or reject a batch of open fixes, after a confirmation on the page. */
+export function BulkDecision({ scope, openFixIds }: BulkDecisionProps) {
   const queryClient = useQueryClient();
   const [asking, setAsking] = useState<"approve" | "reject">();
   const [comment, setComment] = useState("");
   const decide = useDecideProposals({
     mutation: {
       onSuccess: () => {
-        void queryClient.invalidateQueries({ queryKey: getListProposalsQueryKey() });
+        // Covers the list and any open detail panel, whose keys share this prefix.
+        void queryClient.invalidateQueries({
+          predicate: (query) => String(query.queryKey[0]).startsWith("/api/proposals"),
+        });
         setAsking(undefined);
         setComment("");
       },
     },
   });
   const number = count(openFixIds.length);
+  const fixes = `${number} open ${openFixIds.length === 1 ? "fix" : "fixes"}`;
   if (openFixIds.length === 0) return null;
 
   if (!asking) {
     return (
       <div className="flex items-center gap-2">
         <Button
+          size="sm"
           onClick={() => {
             if (requireName()) setAsking("approve");
           }}
         >
-          Approve all {number} open fixes
+          {openFixIds.length === 1 ? "Approve" : "Approve all"} {fixes}
         </Button>
         <Button
+          size="sm"
           onClick={() => {
             if (requireName()) setAsking("reject");
           }}
         >
-          Reject all {number} open fixes
+          {openFixIds.length === 1 ? "Reject" : "Reject all"} {fixes}
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 border p-3" role="alertdialog" aria-label="Confirm decision">
+    <div
+      className="w-full space-y-2 border bg-background p-3"
+      role="alertdialog"
+      aria-label="Confirm decision"
+    >
       <p className="font-medium">
-        {asking === "approve" ? "Approve" : "Reject"} {number} open fixes from data check {ruleId}?
-        This records one decision for each fix.
+        {asking === "approve" ? "Approve" : "Reject"} {fixes} {scope}? This records one decision for
+        each fix.
       </p>
       {asking === "reject" ? (
         <label className="block">
@@ -84,7 +95,7 @@ export function BulkDecision({ ruleId, openFixIds }: BulkDecisionProps) {
             })
           }
         >
-          {asking === "approve" ? `Approve ${number} fixes` : `Reject ${number} fixes`}
+          {asking === "approve" ? `Approve ${fixes}` : `Reject ${fixes}`}
         </Button>
         <Button variant="ghost" onClick={() => setAsking(undefined)}>
           Cancel

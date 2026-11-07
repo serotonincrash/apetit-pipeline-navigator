@@ -18,9 +18,11 @@ const COLOURS: Record<string, string> = {
   superseded: "text-status-queued",
 };
 
+export const statusColour = (status: string) => COLOURS[status];
+
 export function StatusLabel({ status }: { status: string }) {
   return (
-    <span className={cn("inline-flex items-center gap-1.5 font-medium", COLOURS[status])}>
+    <span className={cn("inline-flex items-center gap-1.5 font-medium", statusColour(status))}>
       <span aria-hidden="true" className="size-2 rounded-full bg-current" />
       {statusLabel(status)}
     </span>

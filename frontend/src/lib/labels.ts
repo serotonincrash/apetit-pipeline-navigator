@@ -153,6 +153,12 @@ export const STATUS_LABELS: Record<string, string> = {
   superseded: "Superseded",
 };
 
+const DECISIONS: Record<string, string> = {
+  approve: "Approved",
+  edit: "Edited",
+  reject: "Rejected",
+};
+
 export const ROLE_LABELS: Record<string, string> = {
   data_specialist: "Data specialist",
   sustainability_specialist: "Sustainability specialist",
@@ -176,6 +182,7 @@ export const stepLabel = (code: string) => lookup(STEPS, code);
 export const columnLabel = (code: string) => lookup(COLUMNS, code);
 export const measureLabel = (code: string) => lookup(MEASURES, code);
 export const statusLabel = (code: string) => lookup(STATUS_LABELS, code);
+export const decisionLabel = (code: string) => lookup(DECISIONS, code);
 export const roleLabel = (code: string) => lookup(ROLE_LABELS, code);
 
 export const REGION_CODES = Object.keys(REGIONS);
@@ -217,9 +224,10 @@ export function filterInWords(table: string, filters: string[]): string {
 export const placeLabel = (crop: string, region: string) =>
   `${cropLabel(crop)}, ${regionLabel(region)}`;
 
-/** Who wrote a suggestion, in plain words. */
-export function proposerLabel(proposer: string): string {
+/** Who wrote a suggestion, in the middle of a sentence. */
+export function sourceName(proposer: string): string {
   const rule = /^rule (\w+)/.exec(proposer);
-  if (rule) return `Suggested by data check ${rule[1]}`;
-  return "Suggested by the assistant";
+  return rule ? `data check ${rule[1]}` : "the assistant";
 }
+
+export const proposerLabel = (proposer: string) => `Suggested by ${sourceName(proposer)}`;

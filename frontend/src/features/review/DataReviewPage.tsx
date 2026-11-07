@@ -6,15 +6,15 @@ import { usePersona } from "@/api/persona";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { TableSkeleton } from "@/components/TableSkeleton";
-import { Button } from "@/components/ui/button";
 import { BacktestNote } from "@/features/review/BacktestNote";
 import { BulkDecision } from "@/features/review/BulkDecision";
 import { ProposalFilters } from "@/features/review/ProposalFilters";
 import { ProposalPanel } from "@/features/review/ProposalPanel";
 import { ProposalTable } from "@/features/review/ProposalTable";
+import { groupByDataCheck, openFixIdsOf } from "@/features/review/proposalGroups";
 import { RunAgainBar } from "@/features/review/RunAgainBar";
 import { useProposalDecision } from "@/features/review/useProposalDecision";
-import { count } from "@/lib/format";
+import { sourceName } from "@/lib/labels";
 
 export interface ReviewSearch {
   rule?: string;
@@ -22,8 +22,6 @@ export interface ReviewSearch {
   status?: string;
   selected?: string;
 }
-
-const PAGE = 200;
 
 function isTyping(target: EventTarget | null): boolean {
   return (
@@ -39,7 +37,7 @@ export function DataReviewPage({ search }: { search: ReviewSearch }) {
   const proposals = useListProposals({ limit: 2000 });
   const rules = useListRules();
   const [mode, setMode] = useState<"reject" | "edit">();
-  const [visible, setVisible] = useState(PAGE);
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
   const runId = proposals.data?.run_id ?? "";
   const run = useGetRun(runId, { query: { enabled: runId !== "" } });
 
@@ -59,7 +57,9 @@ export function DataReviewPage({ search }: { search: ReviewSearch }) {
       ),
     [all, search.rule, search.table, search.status],
   );
-  const shown = filtered.slice(0, visible);
+  const groups = useMemo(() => groupByDataCheck(filtered), [filtered]);
+  // The keys move through what is on screen, so a collapsed data check is skipped.
+  const shown = groups.flatMap((group) => (collapsed.has(group.ruleId) ? [] : group.proposals));
   const selectedIndex = shown.findIndex((item) => item.proposal_id === search.selected);
   const selected: Proposal | undefined = shown[selectedIndex];
   const rule = rules.data?.find((item) => item.rule_id === (selected?.rule_id ?? search.rule));
@@ -70,9 +70,16 @@ export function DataReviewPage({ search }: { search: ReviewSearch }) {
     if (next) setSearch({ ...search, selected: next.proposal_id }, true);
   });
 
-  const openFixIds = filtered
-    .filter((item) => item.action === "fix" && item.status === "open")
-    .map((item) => item.proposal_id);
+  const openFixIds = openFixIdsOf(filtered);
+  const openSources = groups
+    .filter((group) => group.openFixIds.length > 0)
+    .map((group) => sourceName(group.proposer));
+
+  const toggleGroup = (ruleId: string) => {
+    const next = new Set(collapsed);
+    if (!next.delete(ruleId)) next.add(ruleId);
+    setCollapsed(next);
+  };
 
   const since = run.data?.finished_at ?? run.data?.created_at;
   const newDecisions = all.filter(
@@ -131,14 +138,11 @@ export function DataReviewPage({ search }: { search: ReviewSearch }) {
             rule={search.rule}
             table={search.table}
             status={search.status}
-            onChange={(next) => {
-              setVisible(PAGE);
-              setSearch({ ...next });
-            }}
+            onChange={(next) => setSearch({ ...next })}
           />
           {search.rule && rule && !selected ? <BacktestNote rule={rule} /> : null}
-          {search.rule && canDecide ? (
-            <BulkDecision key={search.rule} ruleId={search.rule} openFixIds={openFixIds} />
+          {canDecide && openSources.length > 1 ? (
+            <BulkDecision scope={`from ${openSources.join(", ")}`} openFixIds={openFixIds} />
           ) : null}
           {newDecisions > 0 ? <RunAgainBar decisions={newDecisions} runId={runId} /> : null}
           <p className="text-xs text-muted-foreground">
@@ -166,22 +170,16 @@ export function DataReviewPage({ search }: { search: ReviewSearch }) {
               Clear a filter to see more.
             </EmptyState>
           ) : null}
-          {shown.length > 0 ? (
-            <>
-              <ProposalTable
-                proposals={shown}
-                selectedId={search.selected}
-                onSelect={(id) => setSearch({ ...search, selected: id }, true)}
-              />
-              <p className="mt-2 text-muted-foreground">
-                Showing {count(shown.length)} of {count(filtered.length)}
-              </p>
-              {filtered.length > shown.length ? (
-                <Button className="mt-2" onClick={() => setVisible(visible + PAGE)}>
-                  Show {count(Math.min(PAGE, filtered.length - shown.length))} more
-                </Button>
-              ) : null}
-            </>
+          {groups.length > 0 ? (
+            <ProposalTable
+              groups={groups}
+              rules={rules.data ?? []}
+              collapsed={collapsed}
+              onToggle={toggleGroup}
+              canDecide={canDecide}
+              selectedId={search.selected}
+              onSelect={(id) => setSearch({ ...search, selected: id }, true)}
+            />
           ) : null}
         </div>
       </main>

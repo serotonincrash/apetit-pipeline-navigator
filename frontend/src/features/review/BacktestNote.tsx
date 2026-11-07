@@ -1,21 +1,49 @@
 import type { Rule } from "@/api/generated/model";
+import { InfoTip } from "@/components/InfoTip";
 import { count, share } from "@/lib/format";
 
-const FIELDS: [string, string, "share" | "count"][] = [
-  ["precision", "Precision", "share"],
-  ["recall", "Recall", "share"],
-  ["dev_labels", "Labelled records, 2023 to 2024", "count"],
-  ["dev_flagged", "Flagged records, 2023 to 2024", "count"],
-  ["flagged_all_years", "Flagged records, all seasons", "count"],
-  ["fixed_value_matches_truth", "Fixes that match the answer key", "share"],
+interface BacktestField {
+  key: string;
+  label: string;
+  kind: "share" | "count";
+  tip?: string;
+}
+
+const FIELDS: BacktestField[] = [
+  {
+    key: "precision",
+    label: "Precision",
+    kind: "share",
+    tip: "Of the records this check flagged in 2023 to 2024, the share that are known issues.",
+  },
+  {
+    key: "recall",
+    label: "Recall",
+    kind: "share",
+    tip: "Of the known issues in 2023 to 2024, the share this check flagged.",
+  },
+  {
+    key: "dev_labels",
+    label: "Known issues, 2023 to 2024",
+    kind: "count",
+    tip: "Records listed in the known data issues table for this check.",
+  },
+  { key: "dev_flagged", label: "Flagged records, 2023 to 2024", kind: "count" },
+  { key: "flagged_all_years", label: "Flagged records, all seasons", kind: "count" },
+  {
+    key: "fixed_value_matches_truth",
+    label: "Fixes that match the known value",
+    kind: "share",
+    tip: "Of the known issues this check fixed, the share whose new value equals the value in the known data issues table.",
+  },
 ];
 
-/** What the data check found against the labelled 2023 and 2024 history. */
+/** What the data check found, compared with known issues where those exist. */
 export function BacktestNote({ rule }: { rule: Rule }) {
-  const entries = FIELDS.flatMap(([key, label, kind]) => {
-    const value = rule.backtest[key];
+  const entries = FIELDS.flatMap((field) => {
+    const value = rule.backtest[field.key];
     return typeof value === "number"
-      ? [{ key, label, text: kind === "share" ? share(value) : count(value) }]
+      ? [{ ...field, text: field.kind === "share" ? share(value) : count(value) }]
       : [];
   });
   return (
@@ -26,12 +54,20 @@ export function BacktestNote({ rule }: { rule: Rule }) {
         <dl className="mt-1 grid grid-cols-[auto_1fr] gap-x-4">
           {entries.map((entry) => (
             <div key={entry.key} className="contents">
-              <dt className="text-muted-foreground">{entry.label}</dt>
+              <dt className="text-muted-foreground">
+                {entry.label}
+                {entry.tip ? <InfoTip term={entry.label}>{entry.tip}</InfoTip> : null}
+              </dt>
               <dd className="tabular-nums">{entry.text}</dd>
             </div>
           ))}
         </dl>
       ) : null}
+      {typeof rule.backtest.precision === "number" ? null : (
+        <p className="mt-1 text-muted-foreground">
+          No known issues exist for this check, so it has no precision or recall.
+        </p>
+      )}
     </div>
   );
 }

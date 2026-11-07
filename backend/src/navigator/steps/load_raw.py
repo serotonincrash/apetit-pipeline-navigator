@@ -23,8 +23,8 @@ def read_table(path: str, content: bytes, read_options: Mapping[str, Any]) -> pd
     "load_raw",
     kind="load",
     summary=(
-        "Reads the farm, parcel, weather, climate change, price, scenario and answer-key files the "
-        "recipe uses from the challenge package, exactly as delivered, and keeps each as a raw "
+        "Reads the farm, parcel, weather, climate change, price, scenario and known-issue files "
+        "the recipe uses from the challenge package, exactly as delivered, and keeps each as a raw "
         "table that later steps never change."
     ),
 )

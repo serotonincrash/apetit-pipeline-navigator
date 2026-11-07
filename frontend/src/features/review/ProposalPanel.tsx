@@ -8,7 +8,7 @@ import { ProposalDecisionForm } from "@/features/review/ProposalDecisionForm";
 import type { Decide } from "@/features/review/useProposalDecision";
 import { evidenceValueText, fillEvidenceTokens } from "@/lib/evidence";
 import { dateAndTime } from "@/lib/format";
-import { proposerLabel, sentenceCase, tableLabel } from "@/lib/labels";
+import { decisionLabel, proposerLabel, sentenceCase, tableLabel } from "@/lib/labels";
 
 interface ProposalPanelProps {
   proposalId: string;
@@ -129,7 +129,7 @@ export function ProposalPanel({
           <ul className="mt-1">
             {detail.decisions.map((decision) => (
               <li key={decision.decision_id}>
-                {sentenceCase(decision.decision)} by {decision.reviewer},{" "}
+                {decisionLabel(decision.decision)} by {decision.reviewer},{" "}
                 {dateAndTime(decision.decided_at)}
                 {decision.comment ? `. ${decision.comment}` : ""}
               </li>

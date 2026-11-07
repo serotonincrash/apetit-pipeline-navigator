@@ -98,7 +98,7 @@ def reset(api_url: str, reviewer: str, timeout_s: float) -> None:
     first = api.run_until_finished(timeout_s)
     log.info("first run finished", extra={"status": first["status"], "error": first["error"]})
     for rule_id in CHECKED_RULES:
-        approved = api.approve_fixes(rule_id, "Checked against the 2023-24 answer key.")
+        approved = api.approve_fixes(rule_id, "Checked against the 2023-24 known issues.")
         log.info("fixes approved", extra={"rule_id": rule_id, "approved": approved})
     second = api.run_until_finished(timeout_s)
     if second["status"] != "succeeded":
