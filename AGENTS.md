@@ -143,7 +143,7 @@ Each agent returns structured JSON, and its free-text fields follow the rules ab
 ### UI copy
 
 - Use the farming and business words, not internal names. Show "High emissions (SSP5-8.5)", not `ssp585`; "Turnip rape", not `turnip_rape`.
-- Buttons name the action: "Approve fix", "Run what-if", "Publish report". Never "Submit" or "OK".
+- Buttons name the action: "Approve fix", "Run again with approved fixes", "Publish report". Never "Submit" or "OK".
 - Sentence case for every label, heading and button.
 - Empty states say what is missing and what to do: "No proposals yet. Start a run to check the farm data."
 - Errors say what happened and what the person can do next. No stack traces; the data specialist gets the run id to copy.
