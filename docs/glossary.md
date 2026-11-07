@@ -14,13 +14,15 @@ is what people see; the "In code" column is the name in tables, columns and func
 | Region | `region` (`FI_SW`, `SE_SKANE`) | South-west Finland, Skåne | The two growing regions |
 | Crop | `crop` (`pea`, `turnip_rape`, `potato`, `carrot`, `spinach`) | Pea, Turnip rape, Potato, Carrot, Spinach | The five contract crops |
 | Weather cell | `cell`, `cell_id` | Weather cell | One square of the weather grid |
-| Climate scenario | `scenario` (`historical`, `ssp126`, `ssp245`, `ssp585`) | Past weather, Low emissions (SSP1-2.6), Middle (SSP2-4.5), High emissions (SSP5-8.5) | Which weather a number uses |
-| NGFS scenario | `ngfs_scenario` | As named by NGFS | The transition scenario that sets import premiums |
+| Driver | `driver` | Driver | A weather cause of loss, such as heat at flowering or drought in the sensitive stage |
+| Climate scenario | `scenario` (`historical`, `ssp126`, `ssp245`, `ssp585`) | Past weather, Low emissions (SSP1-2.6), Middle (SSP2-4.5), High emissions (SSP5-8.5) | The SSP weather a number uses |
+| Transition scenario | `ngfs_scenario` | As named by NGFS | The NGFS scenario that sets import premiums |
 | Crop calendar | `crop_params` | Crop calendar | Sowing trigger, maturity degree-days and sensitive window for a region and crop |
 | Shortfall | `shortfall` | Shortfall | Contracted volume minus what the farms deliver in a season, when positive |
 | Contracted volume | `contracted_volume` | Contracted volume | 2025 contract area times today's normal yield |
 | Bad year | `bad_year` | Bad year | A season with yield under 80% of the 1991–2020 average |
 | Replacement premium | `replacement_premium` | Replacement premium | Extra cost per tonne of buying a shortfall on the market |
+| Lever | `lever`, `lever_id` | Lever | One row of the package's lever list, `decarbonisation_levers.csv` |
 
 ## Platform
 
@@ -41,5 +43,10 @@ is what people see; the "In code" column is the name in tables, columns and func
 | Metric | `metric` | (the number itself) | One result number with its lineage |
 | Lineage | `lineage` | Sources | The tables and filter that select the rows behind a metric |
 | Assumption | `assumption` | Assumption | An input value a person can question and change |
-| Action | `action_definition` | Action | An override on the model's inputs that is priced as a what-if |
+| Action | `action_definition` | Action | A catalogue or agent-proposed spec with one typed override, priced as a what-if |
+| Action option | `action_option` | Action option | An action's priced what-if result: cost, risk reduced and emissions change |
 | What-if run | `kind = "what_if"` | What-if | A run that starts from an approved run with one action applied |
+| Insight | `insight` | Insight | A finding that is not a priced metric, with numbers only as metric tokens |
+| Catalogue policy | `reviewer = "Catalogue policy"` | Approved by catalogue policy | Approval of the seeded catalogue actions, so the first run has actions to price |
+
+"Scenario" alone is never used in app copy or reports. Say "climate scenario" or "transition scenario".

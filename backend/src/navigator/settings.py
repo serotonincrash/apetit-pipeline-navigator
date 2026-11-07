@@ -19,6 +19,8 @@ class Settings(BaseSettings):
 
     package_dir: str = "../APETIT_CLIMATE_NATURE_NAVIGATOR_2026"
 
+    catalogue_path: str = "../config/actions/catalogue.json"
+
     gemini_api_key: str = ""
     gemini_model: str = ""
 
