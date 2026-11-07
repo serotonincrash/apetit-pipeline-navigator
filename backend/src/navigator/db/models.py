@@ -151,7 +151,7 @@ class Proposal(Base):
     old_value: Mapped[str | None] = mapped_column(Text)
     new_value: Mapped[str | None] = mapped_column(Text)
     action: Mapped[str] = mapped_column(String)
-    evidence: Mapped[str] = mapped_column(Text)
+    evidence: Mapped[dict[str, Any]] = mapped_column(default=dict)
     explanation: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = _now()
 
@@ -205,6 +205,7 @@ class Metric(Base):
     region: Mapped[str | None] = mapped_column(String)
     crop: Mapped[str | None] = mapped_column(String)
     scenario: Mapped[str | None] = mapped_column(String)
+    ngfs_scenario: Mapped[str | None] = mapped_column(String)
     period: Mapped[str | None] = mapped_column(String)
     lineage: Mapped[dict[str, Any]] = mapped_column(default=dict)
     assumption_ids: Mapped[list[Any]] = mapped_column(default=list)
@@ -239,3 +240,48 @@ class ActionOption(Base):
     emissions_change_t: Mapped[float | None] = mapped_column(Float)
     assumption_ids: Mapped[list[Any]] = mapped_column(default=list)
     confidence: Mapped[str | None] = mapped_column(String)
+
+
+class Insight(Base):
+    """A finding that is not a priced metric. Its numbers are metric tokens in `text`."""
+
+    __tablename__ = "insight"
+    insight_id: Mapped[str] = mapped_column(String, primary_key=True)
+    result_set_id: Mapped[str] = mapped_column(ForeignKey("result_set.result_set_id"), index=True)
+    step: Mapped[str] = mapped_column(String)
+    title: Mapped[str] = mapped_column(String)
+    text: Mapped[str] = mapped_column(Text)
+    metric_ids: Mapped[list[Any]] = mapped_column(default=list)
+    created_at: Mapped[datetime] = _now()
+
+
+class Report(Base):
+    """One draft of a result set's report. Each report run writes a new version."""
+
+    __tablename__ = "report"
+    report_id: Mapped[str] = mapped_column(String, primary_key=True)
+    result_set_id: Mapped[str] = mapped_column(ForeignKey("result_set.result_set_id"), index=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("run.run_id"))
+    version: Mapped[int] = mapped_column(Integer)
+    paragraphs: Mapped[list[Any]] = mapped_column(default=list)
+    status: Mapped[str] = mapped_column(String, default="draft")
+    created_at: Mapped[datetime] = _now()
+
+    __table_args__ = (Index("ix_report_version", "result_set_id", "version", unique=True),)
+
+
+class LlmCall(Base):
+    """One call to the LLM, so every paragraph and explanation points to the call that wrote it."""
+
+    __tablename__ = "llm_call"
+    call_id: Mapped[str] = mapped_column(String, primary_key=True)
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("run.run_id"), index=True)
+    agent: Mapped[str] = mapped_column(String)
+    model: Mapped[str] = mapped_column(String)
+    prompt_version: Mapped[str] = mapped_column(String)
+    input_hash: Mapped[str] = mapped_column(String)
+    output_hash: Mapped[str | None] = mapped_column(String)
+    attempt: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String)
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _now()

@@ -23,6 +23,9 @@ PREFIXES = {
     "assumption": "asm",
     "action": "act",
     "action_option": "opt",
+    "insight": "ins",
+    "report": "rep",
+    "llm_call": "call",
 }
 
 

@@ -286,7 +286,7 @@ class RunExecution:
                     m.Proposal(
                         proposal_id=ids.new_id("proposal"),
                         run_id=self.run_id,
-                        **{str(k): _text(v) for k, v in row.items()},
+                        **{str(k): v if k == "evidence" else _text(v) for k, v in row.items()},
                     )
                 )
         session.flush()
