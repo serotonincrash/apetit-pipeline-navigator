@@ -1,33 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { getListRunsQueryKey, useCreateRun, useListRuns } from "@/api/generated/client";
-import type { Run } from "@/api/generated/model";
 import { requireName } from "@/api/persona";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
-import { StatusLabel } from "@/components/StatusLabel";
 import { TableSkeleton } from "@/components/TableSkeleton";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeaderCell,
-  TableRow,
-} from "@/components/ui/table";
+import { RecipeRunsTable } from "@/features/runs/RecipeRunsTable";
+import { ReportDraftsTable } from "@/features/runs/ReportDraftsTable";
 import { messageOf } from "@/lib/errors";
-import { dateAndTime, relativeTime } from "@/lib/format";
-import { recipeLabel } from "@/lib/recipes";
-
-function startedText(run: Run): string {
-  const started = run.started_at ?? run.created_at;
-  if (run.status === "running" || run.status === "queued") {
-    return run.started_at ? `Started ${relativeTime(started)}` : "Waiting to start";
-  }
-  return dateAndTime(started);
-}
 
 export function RunsPage() {
   const navigate = useNavigate();
@@ -44,6 +26,8 @@ export function RunsPage() {
     },
   );
   const [fixProposer, setFixProposer] = useState(false);
+  const recipeRuns = runs.data?.items.filter((run) => run.kind !== "report") ?? [];
+  const reportDrafts = runs.data?.items.filter((run) => run.kind === "report") ?? [];
   const start = useCreateRun({
     mutation: {
       onSuccess: (run) => {
@@ -96,38 +80,17 @@ export function RunsPage() {
         <EmptyState title="No runs yet.">Start a run to check the farm data.</EmptyState>
       ) : null}
       {runs.data && runs.data.items.length > 0 ? (
-        <Table>
-          <TableHead>
-            <tr>
-              <TableHeaderCell>Run</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-              <TableHeaderCell>Recipe</TableHeaderCell>
-              <TableHeaderCell>Started</TableHeaderCell>
-              <TableHeaderCell>Started by</TableHeaderCell>
-            </tr>
-          </TableHead>
-          <TableBody>
-            {runs.data.items.map((run) => (
-              <TableRow key={run.run_id}>
-                <TableCell>
-                  <Link
-                    to="/runs/$runId"
-                    params={{ runId: run.run_id }}
-                    className="text-primary underline"
-                  >
-                    {run.run_id}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <StatusLabel status={run.status} />
-                </TableCell>
-                <TableCell>{recipeLabel(run)}</TableCell>
-                <TableCell>{startedText(run)}</TableCell>
-                <TableCell>{run.triggered_by}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <>
+          {recipeRuns.length > 0 ? <RecipeRunsTable runs={recipeRuns} /> : null}
+          <h2 className="mb-2 mt-8 font-semibold">Report drafts</h2>
+          {reportDrafts.length > 0 ? (
+            <ReportDraftsTable runs={reportDrafts} />
+          ) : (
+            <p className="text-muted-foreground">
+              No drafts yet. Request one on the report once a run has results.
+            </p>
+          )}
+        </>
       ) : null}
     </main>
   );

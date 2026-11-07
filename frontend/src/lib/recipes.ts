@@ -8,7 +8,7 @@ const RECIPES: Record<string, string> = {
 
 export function recipeLabel(run: Pick<Run, "recipe_id" | "kind">): string {
   const name = RECIPES[run.recipe_id] ?? sentenceCase(run.recipe_id);
-  if (run.kind === "report") return `${name}, report`;
+  if (run.kind === "report") return `${name}, report draft`;
   if (run.kind === "what_if") return `${name}, what-if`;
   return name;
 }
