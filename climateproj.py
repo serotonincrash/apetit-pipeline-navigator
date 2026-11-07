@@ -136,3 +136,36 @@ def summer_climate(keys: pd.DataFrame, arr: dict) -> pd.DataFrame:
                        "hot_days": (arr["tmax_c"][:, jja] >= 27).sum(1),
                        "rain_mm": arr["precip_mm"][:, jja].sum(1)})
     return df.groupby(["region", "scenario"], sort=False).mean().round(2)
+
+
+def parcel_seasons(k, a, stress, sat, params, parcels, per_farm, unit_mgmt, model, unit,
+                   trend_year: int = 2026, prefix: dict | None = None) -> pd.DataFrame:
+    """Every 2025 contract parcel of one region-crop unit paired with every season in every weather
+    set, with stress features, today's management, the trend held at `trend_year`, and the model's
+    expected log yield (without the smearing factor) in `log_yield`."""
+    import yieldcv as cv
+    import yieldmodel as ym
+    prefix = prefix or {"FI_SW": "GF", "SE_SKANE": "GS"}
+    r, c = unit
+    idx = np.where(k["cell_id"].str.startswith(prefix[r]).values)[0]
+    f = cw.crop_features(k, a, stress, sat, params, idx)
+    seasons = k.iloc[idx][["scenario", "year"]].drop_duplicates()
+    x = cw.to_parcels(f, parcels[parcels["region"].eq(r) & parcels["crop"].eq(c)].merge(seasons, how="cross"))
+    x = x.join(ym.parcel_soil_features(x)).merge(per_farm, on=["region", "farm_id", "crop"], how="left")
+    for col in ym.MANAGEMENT:
+        x[col] = pd.to_numeric(x[col], errors="coerce").fillna(unit_mgmt[col].get(unit, np.nan))
+    x["sprays"] = x["sprays"].fillna(0.0)
+    x["year_c"] = trend_year - 2019
+    return with_log_yield(x, model)
+
+
+def with_log_yield(x: pd.DataFrame, model: dict) -> pd.DataFrame:
+    """(Re)compute the expected log yield after inputs change. Rebuilds the model's interaction columns."""
+    import yieldcv as cv
+    import yieldmodel as ym
+    held = x["year_c"].copy() if "year_c" in x.columns else None
+    x = cv.add_model_columns(x.drop(columns=[c for c in ("drought_x_irr", "blight_x_sprays") if c in x.columns]))
+    if held is not None:
+        x["year_c"] = held
+    x["log_yield"] = np.log(ym.predict(model, x) / model["smearing"])
+    return x
