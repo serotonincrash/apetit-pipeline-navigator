@@ -15,16 +15,20 @@ Supported override types:
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import replace
 
 import numpy as np
 import pandas as pd
 
+from navigator.analysis import climateproj as cp
+
 SUPPORTED = {"relocate_area", "set_irrigated", "shift_sowing", "scale_feature"}
 
 
 def load_catalogue(path) -> list[dict]:
-    specs = json.loads(open(path).read())
+    with open(path) as f:
+        specs = json.load(f)
     ids = [s["action_id"] for s in specs]
     assert len(ids) == len(set(ids)), "duplicate action ids"
     return specs
@@ -44,7 +48,8 @@ def support(spec: dict, models: dict) -> tuple[bool, str]:
         if t == "set_irrigated" and beta.get("drought_x_irr", 0) == 0:
             return (
                 False,
-                f"no irrigation effect in the {r}/{c} model: these growers never irrigate in the data",
+                f"no irrigation effect in the {r}/{c} model: "
+                "these growers never irrigate in the data",
             )
         if t == "scale_feature" and beta.get(spec["override"]["feature"], 0) == 0:
             return False, f"the {r}/{c} model gives {spec['override']['feature']} no effect"
@@ -52,7 +57,8 @@ def support(spec: dict, models: dict) -> tuple[bool, str]:
 
 
 def farm_loss(rows: pd.DataFrame, normal_yield: float) -> pd.Series:
-    """Expected shortfall per hectare for each farm, from expected yields (no noise), per scenario."""
+    """Expected shortfall per hectare for each farm, from expected yields (no noise), per
+    scenario."""
     t = rows.assign(t=rows["parcel_area_ha"] * np.exp(rows["log_yield"]))
     g = t.groupby(["scenario", "year", "farm_id"])[["t", "parcel_area_ha"]].sum()
     y = g["t"] / g["parcel_area_ha"]
@@ -60,7 +66,8 @@ def farm_loss(rows: pd.DataFrame, normal_yield: float) -> pd.Series:
 
 
 def relocate(rows: pd.DataFrame, share: float, normal_yield: float) -> tuple[pd.DataFrame, dict]:
-    """Move `share` of the area from the highest-loss farms to the lowest-loss farms, per scenario."""
+    """Move `share` of the area from the highest-loss farms to the lowest-loss farms, per
+    scenario."""
     out, moved = [], {}
     loss = farm_loss(rows, normal_yield)
     for scen, x in rows.groupby("scenario", sort=False):
@@ -89,11 +96,15 @@ def relocate(rows: pd.DataFrame, share: float, normal_yield: float) -> tuple[pd.
     return pd.concat(out, ignore_index=True), moved
 
 
-def apply_override(spec, rows: pd.DataFrame, model: dict, normal_yield: float, rebuild=None):
+def apply_override(
+    spec,
+    rows: pd.DataFrame,
+    model: dict,
+    normal_yield: float,
+    rebuild: Callable[[int], pd.DataFrame] | None = None,
+):
     """Return (what-if rows, details) for one unit. `rebuild(params_change)` rebuilds rows from the
     weather for overrides that change the crop calendar."""
-    import climateproj as cp
-
     o = spec["override"]
     if o["type"] == "relocate_area":
         return relocate(rows, o["share"], normal_yield)
@@ -106,6 +117,8 @@ def apply_override(spec, rows: pd.DataFrame, model: dict, normal_yield: float, r
         x[o["feature"]] = x[o["feature"]] * o["factor"]
         return cp.with_log_yield(x, model), {}
     if o["type"] == "shift_sowing":
+        if rebuild is None:
+            raise ValueError("shift_sowing needs `rebuild` to rebuild rows from the weather")
         return rebuild(o["days"]), {}
     raise ValueError(o["type"])
 

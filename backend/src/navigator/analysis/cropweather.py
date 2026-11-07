@@ -50,8 +50,8 @@ class CropParams:
     sow_latest: str  # sown on this date if never triggered
     gdd_maturity: float  # degree-days (base 5 C) from sowing to harvest-ready
     cutoff: str  # harvest deadline; not reached by then = immature
-    flower: tuple  # flowering window as fractions of gdd_maturity (heat)
-    sensitive: tuple  # drought-sensitive window as fractions of gdd_maturity
+    flower: tuple[float, float]  # flowering window as fractions of gdd_maturity (heat)
+    sensitive: tuple[float, float]  # drought-sensitive window as fractions of gdd_maturity
 
     def as_dict(self):
         return asdict(self)
@@ -86,7 +86,9 @@ FEATURE_DOCS = {
     "drought_stage": "Mean soil-water stress (1 - AET/PET) in the drought-sensitive window",
     "drought_early": "Mean soil-water stress from sowing to the start of the sensitive window",
     "waterlog_days": "Days with the soil bucket overflowing in the 21 days after sowing",
-    "waterlog_clay": "waterlog_days on clay soils, 0 otherwise (the truth model's clay waterlogging)",
+    "waterlog_clay": (
+        "waterlog_days on clay soils, 0 otherwise (the truth model's clay waterlogging)"
+    ),
     "rain_post_sow_21_mm": "Rain in the 21 days after sowing",
     "harvest_rain_14_mm": "Rain in the 14 days before harvest",
     "harvest_wetdays_14": "Days with >= 1 mm rain in the 14 days before harvest",
@@ -115,7 +117,7 @@ def load_weather(path) -> tuple[pd.DataFrame, dict]:
             {"scenario": w["scenario"].values, "cell_id": w["cell_id"].values, "year": year.values}
         )
         .merge(keys, on=["scenario", "cell_id", "year"], how="left")["sid"]
-        .values
+        .to_numpy()
     )
     arr = {}
     for v in VARS:
@@ -129,7 +131,8 @@ def load_weather(path) -> tuple[pd.DataFrame, dict]:
 def soil_water(arr: dict, start: str = "04-01"):
     """Daily bucket model per series x soil class, full on `start`.
 
-    Each day: add rain, evaporate PET scaled down linearly below half capacity, spill above capacity.
+    Each day: add rain, evaporate PET scaled down linearly below half capacity, spill above
+    capacity.
     Returns stress = 1 - AET/PET and a boolean 'bucket overflowing' (waterlogging) array,
     both shaped (n_series, n_soils, T).
     """
@@ -155,9 +158,9 @@ def phenology(tmean: np.ndarray, p: CropParams) -> dict:
     c = np.cumsum(np.pad(tmean, ((0, 0), (1, 0))), axis=1)
     r5 = np.full_like(tmean, -99.0)
     r5[:, : T - 4] = (c[:, 5:] - c[:, : T - 4]) / 5.0
-    e, l = t_of(p.sow_earliest), t_of(p.sow_latest)
-    ok = (r5 >= p.sow_temp_c) & (_t >= e) & (_t <= l)
-    sow = np.where(ok.any(1), ok.argmax(1), l)
+    earliest, latest = t_of(p.sow_earliest), t_of(p.sow_latest)
+    ok = (r5 >= p.sow_temp_c) & (_t >= earliest) & (_t <= latest)
+    sow = np.where(ok.any(1), ok.argmax(1), latest)
     gdd = np.where(_t[None, :] >= sow[:, None], np.clip(tmean - GDD_BASE_C, 0, None), 0.0)
     cg = np.cumsum(gdd, axis=1)
     cut = t_of(p.cutoff)
@@ -296,7 +299,8 @@ def to_parcels(feat: pd.DataFrame, parcel_years: pd.DataFrame) -> pd.DataFrame:
 
 
 def to_farms(parcel_feat: pd.DataFrame, cols, weight="parcel_area_ha") -> pd.DataFrame:
-    """Area-weighted mean of parcel features per farm x crop x year (the grain yields are reported at)."""
+    """Area-weighted mean of parcel features per farm x crop x year (the grain yields are
+    reported at)."""
     w = parcel_feat[weight]
     num = (
         parcel_feat[cols]
@@ -332,7 +336,7 @@ class FarmAggregator:
                     parcel_years["year"].values,
                 ]
             )
-        ).values
+        ).to_numpy()
         ok = ~np.isnan(p)
         py = parcel_years[ok]
         soil = py["soil_class_soilmap"].map({s: j for j, s in enumerate(SOILS)}).values

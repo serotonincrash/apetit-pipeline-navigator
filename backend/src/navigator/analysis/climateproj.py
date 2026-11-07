@@ -20,6 +20,8 @@ import numpy as np
 import pandas as pd
 
 from navigator.analysis import cropweather as cw
+from navigator.analysis import yieldcv as cv
+from navigator.analysis import yieldmodel as ym
 
 SCENARIOS = ["ssp126", "ssp245", "ssp585"]
 BASE_YEARS = (1991, 2020)
@@ -36,8 +38,8 @@ def ensemble(keys: pd.DataFrame, arr: dict, signals: pd.DataFrame):
     parts_k, parts_a = [hist.assign(scenario="baseline")], [{v: arr[v][hi] for v in cw.VARS}]
     for s in SCENARIOS:
         sig = signals[signals["scenario"].eq(s)].set_index("month")
-        dt = sig["delta_tmean_c"].reindex(MONTH_OF_T).values.astype(np.float32)[None, :]
-        pf = sig["precip_factor"].reindex(MONTH_OF_T).values.astype(np.float32)[None, :]
+        dt = sig["delta_tmean_c"].reindex(MONTH_OF_T).to_numpy().astype(np.float32)[None, :]
+        pf = sig["precip_factor"].reindex(MONTH_OF_T).to_numpy().astype(np.float32)[None, :]
         a = {v: arr[v][hi].copy() for v in cw.VARS}
         t0 = a["tmean_c"]
         for v in ["tmean_c", "tmax_c", "tmin_c"]:
@@ -191,8 +193,6 @@ def parcel_seasons(
     """Every 2025 contract parcel of one region-crop unit paired with every season in every weather
     set, with stress features, today's management, the trend held at `trend_year`, and the model's
     expected log yield (without the smearing factor) in `log_yield`."""
-    import yieldmodel as ym
-
     prefix = prefix or {"FI_SW": "GF", "SE_SKANE": "GS"}
     r, c = unit
     idx = np.where(k["cell_id"].str.startswith(prefix[r]).values)[0]
@@ -212,10 +212,8 @@ def parcel_seasons(
 
 
 def with_log_yield(x: pd.DataFrame, model: dict) -> pd.DataFrame:
-    """(Re)compute the expected log yield after inputs change. Rebuilds the model's interaction columns."""
-    import yieldcv as cv
-    import yieldmodel as ym
-
+    """(Re)compute the expected log yield after inputs change. Rebuilds the model's interaction
+    columns."""
     held = x["year_c"].copy() if "year_c" in x.columns else None
     x = cv.add_model_columns(
         x.drop(columns=[c for c in ("drought_x_irr", "blight_x_sprays") if c in x.columns])
