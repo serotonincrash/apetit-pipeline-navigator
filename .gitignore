@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+node_modules/
+dist/
+.DS_Store
+.worktrees/
+APETIT_CLIMATE_NATURE_NAVIGATOR_2026/

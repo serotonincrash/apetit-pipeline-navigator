@@ -1,0 +1,209 @@
+{
+ "rows": 3437,
+ "columns": [
+  "survey_id",
+  "farm_id",
+  "crop",
+  "year",
+  "area_ha",
+  "soil_type_reported",
+  "n_mineral_kg_ha",
+  "n_manure_kg_ha",
+  "fertiliser_product",
+  "p_kg_ha",
+  "diesel_l_ha",
+  "lime_t_ha",
+  "sprays",
+  "irrigated",
+  "catch_crop_share",
+  "yield_t_ha",
+  "record_key",
+  "decl_area_ha",
+  "org_area",
+  "organic_share_soilmap",
+  "n_corrections",
+  "soil_misreport_flag"
+ ],
+ "values": {
+  "survey_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 3437,
+   "hash": "4b06520d301d506fdff3c3f0720b62f06400c7a30ae4509b234d8cf6a956979c"
+  },
+  "farm_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 357,
+   "hash": "0ad405dd3cea2ee0377f15776f22410d220e7fc72d07cac97569b15597e82300"
+  },
+  "crop": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "318c6d0c81b7c6ff9d6e21fb88e6b645cca0cf725261d78581e178c16d33194f"
+  },
+  "year": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 6942490.0,
+   "mean": 2019.9272621472214,
+   "std": 4.17089168728418,
+   "min": 2012.0,
+   "max": 2026.0
+  },
+  "area_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 69848.82,
+   "mean": 20.322612743671808,
+   "std": 11.903328534127512,
+   "min": 1.02,
+   "max": 113.32
+  },
+  "soil_type_reported": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "99144bfbde1ba971f1f75baf2e60c583ec9b954251097cf5580dcae70d25b460"
+  },
+  "n_mineral_kg_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 245593.50000000003,
+   "mean": 71.45577538551063,
+   "std": 39.255834702195095,
+   "min": 0.0,
+   "max": 173.8
+  },
+  "n_manure_kg_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 7839.9,
+   "mean": 2.2810299679953445,
+   "std": 10.285880768137584,
+   "min": 0.0,
+   "max": 71.5
+  },
+  "fertiliser_product": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "6459867299cc8ad8f650d63e7028b66bb309f39ba85c4b2c2ac6eae6a1a2956e"
+  },
+  "p_kg_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 50130.0,
+   "mean": 14.58539423916206,
+   "std": 5.450266379377405,
+   "min": 5.1,
+   "max": 50.0
+  },
+  "diesel_l_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 309886.0,
+   "mean": 90.16176898457958,
+   "std": 27.555209351610994,
+   "min": 46.3,
+   "max": 271.2
+  },
+  "lime_t_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 1610.3600000000001,
+   "mean": 0.4685365144020949,
+   "std": 0.7666757192698109,
+   "min": 0.0,
+   "max": 4.33
+  },
+  "sprays": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 9591.7,
+   "mean": 2.7907186499854526,
+   "std": 1.5391773505524273,
+   "min": 0.0,
+   "max": 10.7
+  },
+  "irrigated": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 213.0,
+   "mean": 0.06197265056735525,
+   "std": 0.24114095394785764,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "catch_crop_share": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 731.5300000000001,
+   "mean": 0.21283968577247603,
+   "std": 0.27795009050799985,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "yield_t_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 18592.21,
+   "mean": 5.409429735234216,
+   "std": 10.327496756504527,
+   "min": 0.44,
+   "max": 67.37
+  },
+  "record_key": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 3437,
+   "hash": "1e95e6a1009fef19e7ec6140c85f35e1cc1636c46d29aa78297eb00f932e3c3c"
+  },
+  "decl_area_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 69849.19,
+   "mean": 20.32272039569392,
+   "std": 11.90301219769325,
+   "min": 1.02,
+   "max": 113.31
+  },
+  "org_area": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 3926.58,
+   "mean": 1.1424439918533604,
+   "std": 4.428372220251018,
+   "min": 0.0,
+   "max": 67.02
+  },
+  "organic_share_soilmap": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 204.30114806805972,
+   "mean": 0.05944170732268249,
+   "std": 0.19632188656960853,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "n_corrections": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 147.0,
+   "mean": 0.04276985743380855,
+   "std": 0.20663670644607623,
+   "min": 0.0,
+   "max": 3.0
+  },
+  "soil_misreport_flag": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 195.0,
+   "mean": 0.05673552516729706,
+   "std": 0.23137022413175373,
+   "min": 0.0,
+   "max": 1.0
+  }
+ }
+}

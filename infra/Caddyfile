@@ -1,0 +1,14 @@
+{$DOMAIN} {
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+	handle /api/* {
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+	# The web service joins in milestone 4; until then only the API is served.
+	handle {
+		respond "The app is not deployed yet." 503
+	}
+}

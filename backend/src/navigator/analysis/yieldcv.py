@@ -4,6 +4,7 @@ Model: log(yield) = farm level + features . beta (ridge on standardised, farm-de
 The baseline is the farm's own mean log yield over the training years, i.e. the package's C1
 'farm historical mean' baseline.
 """
+
 import numpy as np
 import pandas as pd
 
@@ -18,7 +19,9 @@ def _fit(X, y, lam, X_raw=None, min_support=0.05):
     beta = np.zeros(X.shape[1])
     if use.any():
         Xs = X[:, use] / sd[use]
-        beta[use] = np.linalg.solve(Xs.T @ Xs + lam * len(y) * np.eye(use.sum()), Xs.T @ y) / sd[use]
+        beta[use] = (
+            np.linalg.solve(Xs.T @ Xs + lam * len(y) * np.eye(use.sum()), Xs.T @ y) / sd[use]
+        )
     return beta
 
 
@@ -40,7 +43,10 @@ def loyo(df: pd.DataFrame, cols, lam=0.01, min_train_years=3):
         tr = years != yr
         cnt = np.bincount(f[tr], minlength=nf)
         my = np.bincount(f[tr], y[tr], minlength=nf) / np.maximum(cnt, 1)
-        mx = np.stack([np.bincount(f[tr], X[tr, k], minlength=nf) for k in range(X.shape[1])], 1) / np.maximum(cnt, 1)[:, None]
+        mx = (
+            np.stack([np.bincount(f[tr], X[tr, k], minlength=nf) for k in range(X.shape[1])], 1)
+            / np.maximum(cnt, 1)[:, None]
+        )
         ft = f[tr]
         keep = cnt[ft] >= min_train_years
         beta = _fit((X[tr] - mx[ft])[keep], (y[tr] - my[ft])[keep], lam, X_raw=X[tr][keep])
@@ -48,9 +54,13 @@ def loyo(df: pd.DataFrame, cols, lam=0.01, min_train_years=3):
         base[te] = my[f[te]]
         pred[te] = base[te] + (X[te] - mx[f[te]]) @ beta
     ok = ~np.isnan(pred)
-    rmse = lambda e: float(np.sqrt(np.mean(e ** 2)))
+    rmse = lambda e: float(np.sqrt(np.mean(e**2)))
     out = df.assign(log_pred=pred, log_base=base)
-    summary = {"n": int(ok.sum()), "rmse_log": rmse(y[ok] - pred[ok]), "rmse_log_baseline": rmse(y[ok] - base[ok])}
+    summary = {
+        "n": int(ok.sum()),
+        "rmse_log": rmse(y[ok] - pred[ok]),
+        "rmse_log_baseline": rmse(y[ok] - base[ok]),
+    }
     summary["improvement_pct"] = 100 * (1 - summary["rmse_log"] / summary["rmse_log_baseline"])
     return summary, out
 
@@ -64,14 +74,24 @@ def fit_coefficients(df, cols, lam=0.01):
     ym = pd.Series(y).groupby(df["farm_id"].values).transform("mean").values
     beta = _fit(X - xm, y - ym, lam, X_raw=X)
     sd = (X - xm).std(0)
-    return pd.DataFrame({"feature": list(cols), "beta": beta,
-                         "effect_of_1sd_pct": 100 * (np.exp(beta * sd) - 1)}).set_index("feature")
+    return pd.DataFrame(
+        {"feature": list(cols), "beta": beta, "effect_of_1sd_pct": 100 * (np.exp(beta * sd) - 1)}
+    ).set_index("feature")
 
 
 # Model specification shared by the tuning step and the modelling notebook.
 # Interactions follow the truth-model description: irrigation mitigates drought, sprays mitigate blight.
-COMMON_FEATURES = ["drought_stage", "drought_x_irr", "drought_early", "heat_days_27", "waterlog_clay",
-                   "harvest_rain_14_mm", "immature_gap", "year_c", "n_mineral_100"]
+COMMON_FEATURES = [
+    "drought_stage",
+    "drought_x_irr",
+    "drought_early",
+    "heat_days_27",
+    "waterlog_clay",
+    "harvest_rain_14_mm",
+    "immature_gap",
+    "year_c",
+    "n_mineral_100",
+]
 CROP_EXTRA_FEATURES = {"potato": ["blight_days", "blight_x_sprays"], "turnip_rape": ["may_tmean_c"]}
 
 
@@ -83,7 +103,9 @@ def add_model_columns(df):
     df = df.copy()
     irrigated = pd.to_numeric(df["irrigated"], errors="coerce").astype(float)
     df["drought_x_irr"] = df["drought_stage"] * irrigated
-    df["blight_x_sprays"] = df["blight_days"] * pd.to_numeric(df["sprays"], errors="coerce").fillna(0.0)
+    df["blight_x_sprays"] = df["blight_days"] * pd.to_numeric(df["sprays"], errors="coerce").fillna(
+        0.0
+    )
     df["year_c"] = df["year"] - 2019
     df["n_mineral_100"] = df["n_mineral_kg_ha"] / 100
     return df

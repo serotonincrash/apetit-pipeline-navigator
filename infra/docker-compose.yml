@@ -1,0 +1,92 @@
+# One file for every machine.
+#   Laptop, shared dev services:  docker compose --profile dev up -d      (Postgres and MinIO)
+#   Vultr VM, the whole app:      COMPOSE_PROFILES=app in .env, then docker compose up -d
+name: navigator
+
+x-backend: &backend
+  build:
+    context: ..
+    dockerfile: infra/backend.Dockerfile
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql+psycopg://navigator:${POSTGRES_PASSWORD}@postgres:5432/navigator
+    S3_ENDPOINT: minio:9000
+  depends_on:
+    postgres:
+      condition: service_healthy
+    minio:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    profiles: [dev, app]
+    environment:
+      POSTGRES_USER: navigator
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: navigator
+    ports: ["127.0.0.1:5432:5432"]
+    volumes: [postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "navigator"]
+      interval: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    profiles: [dev, app]
+    command: server /data --console-address :9001
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
+    volumes: [minio:/data]
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      retries: 10
+
+  seed:
+    <<: *backend
+    profiles: [app]
+    command: sh -c "alembic upgrade head && python -m navigator.seed"
+    environment:
+      DATABASE_URL: postgresql+psycopg://navigator:${POSTGRES_PASSWORD}@postgres:5432/navigator
+      S3_ENDPOINT: minio:9000
+      PACKAGE_DIR: /package
+    volumes: ["${PACKAGE_DIR}:/package:ro"]
+    restart: "no"
+
+  api:
+    <<: *backend
+    profiles: [app]
+    command: uvicorn navigator.api.main:app --host 0.0.0.0 --port 8000
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *backend
+    profiles: [app]
+    command: python -m navigator.worker.main
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  caddy:
+    image: caddy:2-alpine
+    profiles: [app]
+    environment:
+      DOMAIN: ${DOMAIN}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH}
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy:/data
+    depends_on: [api]
+
+volumes:
+  postgres:
+  minio:
+  caddy:

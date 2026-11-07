@@ -9,16 +9,24 @@ temperature trigger, GDD base 5 C stages, bucket soil water reset on 1 April, st
 sensitive stages). The *numbers* are not published: CropParams holds agronomic starting
 values, and the notebook tunes the maturity targets against the yield history.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict, replace
+from dataclasses import asdict, dataclass
+
 import numpy as np
 import pandas as pd
 
-T = 245                                   # 1 Mar .. 31 Oct
+T = 245  # 1 Mar .. 31 Oct
 VARS = ["tmean_c", "tmax_c", "tmin_c", "precip_mm", "rad_mj_m2", "pet_mm"]
 SOILS = ["sand", "fine_sand", "silt", "clay", "organic"]
-AWC_MM = {"sand": 60.0, "fine_sand": 90.0, "silt": 150.0, "clay": 130.0, "organic": 180.0}  # plant-available water, root zone
+AWC_MM = {
+    "sand": 60.0,
+    "fine_sand": 90.0,
+    "silt": 150.0,
+    "clay": 130.0,
+    "organic": 180.0,
+}  # plant-available water, root zone
 GDD_BASE_C = 5.0
 _t = np.arange(T)
 
@@ -37,24 +45,32 @@ def doy_of_t(t):
 @dataclass(frozen=True)
 class CropParams:
     crop: str
-    sow_temp_c: float          # 5-day mean temperature that triggers sowing
-    sow_earliest: str          # 'MM-DD'
-    sow_latest: str            # sown on this date if never triggered
-    gdd_maturity: float        # degree-days (base 5 C) from sowing to harvest-ready
-    cutoff: str                # harvest deadline; not reached by then = immature
-    flower: tuple              # flowering window as fractions of gdd_maturity (heat)
-    sensitive: tuple           # drought-sensitive window as fractions of gdd_maturity
+    sow_temp_c: float  # 5-day mean temperature that triggers sowing
+    sow_earliest: str  # 'MM-DD'
+    sow_latest: str  # sown on this date if never triggered
+    gdd_maturity: float  # degree-days (base 5 C) from sowing to harvest-ready
+    cutoff: str  # harvest deadline; not reached by then = immature
+    flower: tuple  # flowering window as fractions of gdd_maturity (heat)
+    sensitive: tuple  # drought-sensitive window as fractions of gdd_maturity
 
     def as_dict(self):
         return asdict(self)
 
 
 DEFAULT_PARAMS = {
-    "pea":         CropParams("pea",         6.0, "04-20", "06-10",  850, "08-31", (0.45, 0.70), (0.45, 1.00)),
-    "turnip_rape": CropParams("turnip_rape", 6.0, "04-20", "06-10", 1200, "09-30", (0.40, 0.65), (0.40, 0.85)),
-    "potato":      CropParams("potato",      8.0, "05-01", "06-15", 1300, "09-30", (0.35, 0.55), (0.35, 0.90)),
-    "carrot":      CropParams("carrot",      7.0, "04-25", "06-15", 1300, "10-15", (0.40, 0.70), (0.40, 0.95)),
-    "spinach":     CropParams("spinach",     5.0, "04-15", "05-31",  500, "07-15", (0.50, 1.00), (0.40, 1.00)),
+    "pea": CropParams("pea", 6.0, "04-20", "06-10", 850, "08-31", (0.45, 0.70), (0.45, 1.00)),
+    "turnip_rape": CropParams(
+        "turnip_rape", 6.0, "04-20", "06-10", 1200, "09-30", (0.40, 0.65), (0.40, 0.85)
+    ),
+    "potato": CropParams(
+        "potato", 8.0, "05-01", "06-15", 1300, "09-30", (0.35, 0.55), (0.35, 0.90)
+    ),
+    "carrot": CropParams(
+        "carrot", 7.0, "04-25", "06-15", 1300, "10-15", (0.40, 0.70), (0.40, 0.95)
+    ),
+    "spinach": CropParams(
+        "spinach", 5.0, "04-15", "05-31", 500, "07-15", (0.50, 1.00), (0.40, 1.00)
+    ),
 }
 
 FEATURE_DOCS = {
@@ -85,11 +101,22 @@ def load_weather(path) -> tuple[pd.DataFrame, dict]:
     w = w[w["date"].dt.month.between(3, 10)]
     year = w["date"].dt.year
     t = w["date"].dt.dayofyear.values - 60 - w["date"].dt.is_leap_year.values.astype(int)
-    keys = (pd.DataFrame({"scenario": w["scenario"].values, "cell_id": w["cell_id"].values, "year": year.values})
-            .drop_duplicates().sort_values(["scenario", "cell_id", "year"]).reset_index(drop=True))
+    keys = (
+        pd.DataFrame(
+            {"scenario": w["scenario"].values, "cell_id": w["cell_id"].values, "year": year.values}
+        )
+        .drop_duplicates()
+        .sort_values(["scenario", "cell_id", "year"])
+        .reset_index(drop=True)
+    )
     keys["sid"] = np.arange(len(keys))
-    sid = (pd.DataFrame({"scenario": w["scenario"].values, "cell_id": w["cell_id"].values, "year": year.values})
-           .merge(keys, on=["scenario", "cell_id", "year"], how="left")["sid"].values)
+    sid = (
+        pd.DataFrame(
+            {"scenario": w["scenario"].values, "cell_id": w["cell_id"].values, "year": year.values}
+        )
+        .merge(keys, on=["scenario", "cell_id", "year"], how="left")["sid"]
+        .values
+    )
     arr = {}
     for v in VARS:
         a = np.full((len(keys), T), np.nan, dtype=np.float32)
@@ -112,11 +139,11 @@ def soil_water(arr: dict, start: str = "04-01"):
     stress = np.zeros((P.shape[0], len(SOILS), T), dtype=np.float32)
     sat = np.zeros_like(stress, dtype=bool)
     for k in range(t_of(start), T):
-        W = W + P[:, k:k + 1]
-        pet = E[:, k:k + 1]
+        W = W + P[:, k : k + 1]
+        pet = E[:, k : k + 1]
         aet = pet * np.clip(W / (0.5 * caps), 0.0, 1.0)
         W = W - aet
-        sat[:, :, k] = W > caps
+        sat[:, :, k] = caps < W
         W = np.minimum(W, caps)
         stress[:, :, k] = np.where(pet > 0, 1.0 - aet / np.maximum(pet, 1e-6), 0.0)
     return stress, sat
@@ -127,7 +154,7 @@ def phenology(tmean: np.ndarray, p: CropParams) -> dict:
     n = tmean.shape[0]
     c = np.cumsum(np.pad(tmean, ((0, 0), (1, 0))), axis=1)
     r5 = np.full_like(tmean, -99.0)
-    r5[:, :T - 4] = (c[:, 5:] - c[:, :T - 4]) / 5.0
+    r5[:, : T - 4] = (c[:, 5:] - c[:, : T - 4]) / 5.0
     e, l = t_of(p.sow_earliest), t_of(p.sow_latest)
     ok = (r5 >= p.sow_temp_c) & (_t >= e) & (_t <= l)
     sow = np.where(ok.any(1), ok.argmax(1), l)
@@ -137,14 +164,23 @@ def phenology(tmean: np.ndarray, p: CropParams) -> dict:
     reached = cg >= p.gdd_maturity
     mat = np.where(reached.any(1), reached.argmax(1), -1)
     harvest = np.where((mat < 0) | (mat > cut), cut, mat)
-    return {"sow": sow, "cg": cg, "mat": mat, "harvest": harvest,
-            "immature": ((mat < 0) | (mat > cut)).astype(np.int8),
-            "gdd_ratio": np.minimum(cg[np.arange(n), cut] / p.gdd_maturity, 1.0)}
+    return {
+        "sow": sow,
+        "cg": cg,
+        "mat": mat,
+        "harvest": harvest,
+        "immature": ((mat < 0) | (mat > cut)).astype(np.int8),
+        "gdd_ratio": np.minimum(cg[np.arange(n), cut] / p.gdd_maturity, 1.0),
+    }
 
 
 def _window(ph, lo, hi, M):
-    return ((ph["cg"] >= lo * M) & (ph["cg"] < hi * M)
-            & (_t[None, :] >= ph["sow"][:, None]) & (_t[None, :] <= ph["harvest"][:, None]))
+    return (
+        (ph["cg"] >= lo * M)
+        & (ph["cg"] < hi * M)
+        & (_t[None, :] >= ph["sow"][:, None])
+        & (_t[None, :] <= ph["harvest"][:, None])
+    )
 
 
 def _msum(x, m):
@@ -156,7 +192,9 @@ def _mmean(x, m):
     return np.where(n > 0, _msum(x, m) / np.maximum(n, 1), np.nan)
 
 
-def crop_features(keys: pd.DataFrame, arr: dict, stress, sat, p: CropParams, idx=None) -> pd.DataFrame:
+def crop_features(
+    keys: pd.DataFrame, arr: dict, stress, sat, p: CropParams, idx=None
+) -> pd.DataFrame:
     """One row per series x soil class for crop `p`. `idx` restricts to a subset of series."""
     if idx is None:
         idx = np.arange(len(keys))
@@ -177,23 +215,29 @@ def crop_features(keys: pd.DataFrame, arr: dict, stress, sat, p: CropParams, idx
     w_may = (_t >= t_of("05-01")) & (_t <= t_of("05-31"))
     P, tm, tx = a["precip_mm"], a["tmean_c"], a["tmax_c"]
 
-    base = pd.DataFrame({
-        "sid": keys["sid"].values[idx],
-        "sow_doy": doy_of_t(ph["sow"]),
-        "mat_doy": np.where(ph["mat"] >= 0, doy_of_t(ph["mat"]), np.nan),
-        "immature": ph["immature"],
-        "immature_gap": np.where(ph["gdd_ratio"] > 0.999, 0.0, 1.0 - ph["gdd_ratio"]),   # drop float noise
-        "season_gdd": ph["cg"][np.arange(n), ph["harvest"]],
-        "rad_season_mj": _msum(a["rad_mj_m2"], w_season),
-        "heat_days_27": _msum(tx >= 27, w_flower),
-        "heat_days_30": _msum(tx >= 30, w_flower),
-        "deficit_stage_mm": _msum(a["pet_mm"] - P, w_sens),
-        "rain_post_sow_21_mm": _msum(P, w_post),
-        "harvest_rain_14_mm": _msum(P, w_preh),
-        "harvest_wetdays_14": _msum(P >= 1, w_preh),
-        "blight_days": _msum((P >= 1) & (tm >= 15) & (tm <= 22), np.broadcast_to(w_julaug, P.shape)),
-        "may_tmean_c": _mmean(tm, np.broadcast_to(w_may, tm.shape)),
-    })
+    base = pd.DataFrame(
+        {
+            "sid": keys["sid"].values[idx],
+            "sow_doy": doy_of_t(ph["sow"]),
+            "mat_doy": np.where(ph["mat"] >= 0, doy_of_t(ph["mat"]), np.nan),
+            "immature": ph["immature"],
+            "immature_gap": np.where(
+                ph["gdd_ratio"] > 0.999, 0.0, 1.0 - ph["gdd_ratio"]
+            ),  # drop float noise
+            "season_gdd": ph["cg"][np.arange(n), ph["harvest"]],
+            "rad_season_mj": _msum(a["rad_mj_m2"], w_season),
+            "heat_days_27": _msum(tx >= 27, w_flower),
+            "heat_days_30": _msum(tx >= 30, w_flower),
+            "deficit_stage_mm": _msum(a["pet_mm"] - P, w_sens),
+            "rain_post_sow_21_mm": _msum(P, w_post),
+            "harvest_rain_14_mm": _msum(P, w_preh),
+            "harvest_wetdays_14": _msum(P >= 1, w_preh),
+            "blight_days": _msum(
+                (P >= 1) & (tm >= 15) & (tm <= 22), np.broadcast_to(w_julaug, P.shape)
+            ),
+            "may_tmean_c": _mmean(tm, np.broadcast_to(w_may, tm.shape)),
+        }
+    )
     out = []
     for j, soil in enumerate(SOILS):
         f = base.copy()
@@ -204,31 +248,62 @@ def crop_features(keys: pd.DataFrame, arr: dict, stress, sat, p: CropParams, idx
         f["waterlog_clay"] = f["waterlog_days"] if soil == "clay" else 0
         out.append(f)
     out = pd.concat(out, ignore_index=True)
-    out = keys.iloc[out["sid"].values][["scenario", "cell_id", "year"]].reset_index(drop=True).join(out)
+    out = (
+        keys.iloc[out["sid"].values][["scenario", "cell_id", "year"]]
+        .reset_index(drop=True)
+        .join(out)
+    )
     out.insert(3, "crop", p.crop)
     return out.drop(columns="sid")
 
 
-WEATHER_FEATURES = ["sow_doy", "mat_doy", "immature", "immature_gap", "season_gdd", "rad_season_mj",
-                    "heat_days_27", "heat_days_30", "deficit_stage_mm", "drought_stage", "drought_early",
-                    "waterlog_days", "waterlog_clay", "rain_post_sow_21_mm", "harvest_rain_14_mm",
-                    "harvest_wetdays_14", "blight_days", "may_tmean_c"]
+WEATHER_FEATURES = [
+    "sow_doy",
+    "mat_doy",
+    "immature",
+    "immature_gap",
+    "season_gdd",
+    "rad_season_mj",
+    "heat_days_27",
+    "heat_days_30",
+    "deficit_stage_mm",
+    "drought_stage",
+    "drought_early",
+    "waterlog_days",
+    "waterlog_clay",
+    "rain_post_sow_21_mm",
+    "harvest_rain_14_mm",
+    "harvest_wetdays_14",
+    "blight_days",
+    "may_tmean_c",
+]
 
 
 def to_parcels(feat: pd.DataFrame, parcel_years: pd.DataFrame) -> pd.DataFrame:
     """Attach cell x soil x crop x year features to parcel-years. Declared years use the historical
     series; planned years (2027+) use the scenario given in `parcel_years['scenario']`."""
     # cells belong to one region, so a region column on the features adds nothing to the join
-    feat = feat.drop(columns=[c for c in ("region",) if c in feat.columns and c in parcel_years.columns])
+    feat = feat.drop(
+        columns=[c for c in ("region",) if c in feat.columns and c in parcel_years.columns]
+    )
     return parcel_years.merge(
-        feat, left_on=["scenario", "cell_id", "year", "crop", "soil_class_soilmap"],
-        right_on=["scenario", "cell_id", "year", "crop", "soil_class"], how="left", validate="many_to_one")
+        feat,
+        left_on=["scenario", "cell_id", "year", "crop", "soil_class_soilmap"],
+        right_on=["scenario", "cell_id", "year", "crop", "soil_class"],
+        how="left",
+        validate="many_to_one",
+    )
 
 
 def to_farms(parcel_feat: pd.DataFrame, cols, weight="parcel_area_ha") -> pd.DataFrame:
     """Area-weighted mean of parcel features per farm x crop x year (the grain yields are reported at)."""
     w = parcel_feat[weight]
-    num = parcel_feat[cols].mul(w, axis=0).groupby([parcel_feat["farm_id"], parcel_feat["crop"], parcel_feat["year"]]).sum(min_count=1)
+    num = (
+        parcel_feat[cols]
+        .mul(w, axis=0)
+        .groupby([parcel_feat["farm_id"], parcel_feat["crop"], parcel_feat["year"]])
+        .sum(min_count=1)
+    )
     den = w.groupby([parcel_feat["farm_id"], parcel_feat["crop"], parcel_feat["year"]]).sum()
     return num.div(den, axis=0).reset_index()
 
@@ -243,10 +318,21 @@ class FarmAggregator:
 
     def __init__(self, keys: pd.DataFrame, idx, parcel_years: pd.DataFrame):
         k = keys.iloc[idx]
-        pos = pd.Series(np.arange(len(idx)),
-                        index=pd.MultiIndex.from_arrays([k["scenario"].values, k["cell_id"].values, k["year"].values]))
-        p = pos.reindex(pd.MultiIndex.from_arrays([parcel_years["scenario"].values, parcel_years["cell_id"].values,
-                                                   parcel_years["year"].values])).values
+        pos = pd.Series(
+            np.arange(len(idx)),
+            index=pd.MultiIndex.from_arrays(
+                [k["scenario"].values, k["cell_id"].values, k["year"].values]
+            ),
+        )
+        p = pos.reindex(
+            pd.MultiIndex.from_arrays(
+                [
+                    parcel_years["scenario"].values,
+                    parcel_years["cell_id"].values,
+                    parcel_years["year"].values,
+                ]
+            )
+        ).values
         ok = ~np.isnan(p)
         py = parcel_years[ok]
         soil = py["soil_class_soilmap"].map({s: j for j, s in enumerate(SOILS)}).values
@@ -254,7 +340,9 @@ class FarmAggregator:
         gk = ["farm_id", "crop", "year"]
         codes, uniq = pd.factorize(pd.MultiIndex.from_frame(py[gk]))
         self.group, self.n = codes, len(uniq)
-        self.keys = py[gk].drop_duplicates().reset_index(drop=True)   # same first-appearance order as factorize
+        self.keys = (
+            py[gk].drop_duplicates().reset_index(drop=True)
+        )  # same first-appearance order as factorize
         assert len(self.keys) == self.n
         self.w = py["parcel_area_ha"].values.astype(float)
 

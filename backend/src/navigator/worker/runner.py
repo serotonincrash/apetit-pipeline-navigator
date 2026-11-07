@@ -1,0 +1,390 @@
+"""Executes one run: every step of its recipe in order, recording what each step did.
+
+All reading and writing happens here. Steps get their input tables as DataFrames and return
+a StepResult; the runner stores the tables as Parquet artifacts and writes the proposals,
+decisions, rules and assumptions to Postgres. Events are committed as they happen, so the
+app can follow a run live.
+"""
+
+import time
+import traceback
+from collections.abc import Iterator, Mapping
+from datetime import UTC, datetime
+from typing import Any
+
+import pandas as pd
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from navigator import ids
+from navigator.db import models as m
+from navigator.db.session import session_scope
+from navigator.logs import get_logger
+from navigator.recipes.core import (
+    PROPOSALS_INPUT,
+    STEPS,
+    Artifact,
+    Params,
+    Recipe,
+    RunContext,
+    SourceFile,
+    StepResult,
+    StepSpec,
+    event_sink,
+)
+from navigator.recipes.registry import get_recipe
+from navigator.settings import get_settings
+from navigator.storage import objects
+
+log = get_logger(__name__)
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
+def emit(run_id: str, type_: str, payload: dict[str, Any], step: str | None = None) -> None:
+    """Store one run event in its own transaction, so it is visible to the stream at once."""
+    with session_scope() as session:
+        session.add(
+            m.RunEvent(
+                event_id=ids.new_id("run_event"),
+                run_id=run_id,
+                step=step,
+                type=type_,
+                payload=payload,
+            )
+        )
+
+
+class PackageSources(Mapping[str, SourceFile]):
+    """The challenge package in object storage, read file by file when a step asks for one."""
+
+    def __init__(self, files: dict[str, m.SourceFile]) -> None:
+        self._files = files
+
+    def __getitem__(self, path: str) -> SourceFile:
+        row = self._files[path]
+        return SourceFile(path=path, sha256=row.sha256, content=objects.get_bytes(row.uri))
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._files)
+
+    def __len__(self) -> int:
+        return len(self._files)
+
+
+def step_params(recipe_step: StepSpec, overrides: Mapping[str, Any]) -> Params:
+    """The step's params from the recipe, with any overrides queued with the run."""
+    return {**recipe_step.params, **overrides.get(recipe_step.name, {})}
+
+
+def proposals_with_status(session: Session, run_id: str) -> pd.DataFrame:
+    """This run's proposals, each with the status set by its latest decision."""
+    proposals = session.scalars(select(m.Proposal).where(m.Proposal.run_id == run_id)).all()
+    keys = [p.proposal_key for p in proposals]
+    latest: dict[str, m.Decision] = {}
+    if keys:
+        decisions = session.scalars(
+            select(m.Decision)
+            .where(m.Decision.target_type == "proposal", m.Decision.target_id.in_(keys))
+            .order_by(m.Decision.decided_at)
+        ).all()
+        latest = {d.target_id: d for d in decisions}
+
+    rows: list[dict[str, Any]] = []
+    for p in proposals:
+        decision = latest.get(p.proposal_key)
+        if p.action == "flag":
+            status = "rejected" if decision and decision.decision == "reject" else "flag"
+        elif decision is None:
+            status = "open"
+        else:
+            status = {"approve": "approved", "edit": "approved", "reject": "rejected"}[
+                decision.decision
+            ]
+        new_value = decision.edited_value if decision and decision.edited_value else p.new_value
+        rows.append(
+            {
+                "proposal_key": p.proposal_key,
+                "rule_id": p.rule_id,
+                "issue_type": p.issue_type,
+                "table": p.table,
+                "record_key": p.record_key,
+                "field": p.field,
+                "old_value": p.old_value,
+                "new_value": new_value,
+                "action": p.action,
+                "status": status,
+            }
+        )
+    columns = [
+        "proposal_key",
+        "rule_id",
+        "issue_type",
+        "table",
+        "record_key",
+        "field",
+        "old_value",
+        "new_value",
+        "action",
+        "status",
+    ]
+    return pd.DataFrame(rows, columns=columns)
+
+
+class RunExecution:
+    def __init__(self, run_id: str) -> None:
+        self.run_id = run_id
+        self.tables: dict[str, Artifact] = {}
+
+    def execute(self) -> None:
+        with session_scope() as session:
+            run = session.get_one(m.Run, self.run_id)
+            recipe = get_recipe(run.recipe_id)
+            overrides: dict[str, Any] = run.params.get("step_params", {})
+            files = {f.path: f for f in session.scalars(select(m.SourceFile)).all()}
+            step_runs = self._create_step_runs(session, recipe, overrides)
+        emit(self.run_id, "run.status", {"status": "running"})
+        ctx = RunContext(
+            run_id=self.run_id, recipe_id=recipe.recipe_id, sources=PackageSources(files)
+        )
+
+        for spec, step_run_id in zip(recipe.steps, step_runs, strict=True):
+            self._execute_step(ctx, spec, step_run_id, step_params(spec, overrides))
+
+        with session_scope() as session:
+            result_set = m.ResultSet(result_set_id=ids.new_id("result_set"), run_id=self.run_id)
+            session.add(result_set)
+            run = session.get_one(m.Run, self.run_id)
+            run.status = "succeeded"
+            run.finished_at = _now()
+        emit(self.run_id, "run.status", {"status": "succeeded"})
+        emit(
+            self.run_id,
+            "run.finished",
+            {"status": "succeeded", "result_set_id": result_set.result_set_id},
+        )
+
+    def _create_step_runs(
+        self, session: Session, recipe: Recipe, overrides: Mapping[str, Any]
+    ) -> list[str]:
+        step_run_ids: list[str] = []
+        for position, spec in enumerate(recipe.steps, start=1):
+            info = STEPS[spec.name]
+            step_run = m.StepRun(
+                step_run_id=ids.new_id("step_run"),
+                run_id=self.run_id,
+                position=position,
+                step=spec.name,
+                kind=info.kind,
+                summary=info.summary,
+                params=dict(step_params(spec, overrides)),
+            )
+            session.add(step_run)
+            step_run_ids.append(step_run.step_run_id)
+        return step_run_ids
+
+    def _execute_step(
+        self, ctx: RunContext, spec: StepSpec, step_run_id: str, params: Params
+    ) -> None:
+        info = STEPS[spec.name]
+        started = time.monotonic()
+        with session_scope() as session:
+            step_run = session.get_one(m.StepRun, step_run_id)
+            step_run.status = "running"
+            step_run.started_at = _now()
+            inputs = self._load_inputs(session, spec)
+            step_run.input_artifacts = [
+                a.artifact_id for a in inputs.values() if a.artifact_id is not None
+            ]
+        emit(
+            self.run_id, "step.started", {"step": spec.name, "annotation": info.summary}, spec.name
+        )
+        log.info("step started", extra={"run_id": self.run_id, "step": spec.name})
+
+        def sink(type_: str, payload: dict[str, Any]) -> None:
+            emit(self.run_id, type_, {"step": spec.name, **payload}, spec.name)
+
+        try:
+            with event_sink(sink):
+                result = info.func(ctx, inputs, params)
+            with session_scope() as session:
+                self._store_result(session, spec.name, step_run_id, result)
+        except Exception as error:
+            seconds = round(time.monotonic() - started, 3)
+            with session_scope() as session:
+                step_run = session.get_one(m.StepRun, step_run_id)
+                step_run.status = "failed"
+                step_run.error = traceback.format_exc()
+                step_run.seconds = seconds
+                step_run.finished_at = _now()
+            emit(
+                self.run_id,
+                "step.finished",
+                {
+                    "step": spec.name,
+                    "annotation": info.summary,
+                    "status": "failed",
+                    "seconds": seconds,
+                },
+                spec.name,
+            )
+            raise StepFailed(spec.name) from error
+
+        seconds = round(time.monotonic() - started, 3)
+        with session_scope() as session:
+            step_run = session.get_one(m.StepRun, step_run_id)
+            step_run.status = "succeeded"
+            step_run.seconds = seconds
+            step_run.finished_at = _now()
+        if result.proposals is not None and len(result.proposals):
+            counts = result.proposals.groupby("rule_id").size().astype(int).to_dict()
+            emit(self.run_id, "proposal.created", {"step": spec.name, "count_per_rule": counts})
+        emit(
+            self.run_id,
+            "step.finished",
+            {
+                "step": spec.name,
+                "annotation": info.summary,
+                "status": "succeeded",
+                "seconds": seconds,
+            },
+            spec.name,
+        )
+        log.info(
+            "step finished", extra={"run_id": self.run_id, "step": spec.name, "seconds": seconds}
+        )
+
+    def _load_inputs(self, session: Session, spec: StepSpec) -> dict[str, Artifact]:
+        inputs: dict[str, Artifact] = {}
+        for name in spec.inputs:
+            if name == PROPOSALS_INPUT:
+                frame = proposals_with_status(session, self.run_id)
+                inputs[name] = Artifact(name=name, layer="result", frame=frame)
+            elif name in self.tables:
+                inputs[name] = self.tables[name]
+            else:
+                raise KeyError(f"step {spec.name} reads {name!r}, which no earlier step wrote")
+        return inputs
+
+    def _store_result(
+        self, session: Session, step: str, step_run_id: str, result: StepResult
+    ) -> None:
+        bucket = get_settings().s3_bucket
+        output_ids: list[str] = []
+        for table in result.tables:
+            artifact_id = ids.new_id("artifact")
+            content = objects.frame_to_parquet(table.frame)
+            uri = objects.put_bytes(bucket, objects.artifact_key(self.run_id, artifact_id), content)
+            session.add(
+                m.Artifact(
+                    artifact_id=artifact_id,
+                    step_run_id=step_run_id,
+                    run_id=self.run_id,
+                    name=table.name,
+                    uri=uri,
+                    layer=table.layer,
+                    row_count=len(table.frame),
+                    columns=[str(c) for c in table.frame.columns],
+                    content_hash=objects.content_hash(content),
+                )
+            )
+            self.tables[table.name] = Artifact(
+                name=table.name, layer=table.layer, frame=table.frame, artifact_id=artifact_id
+            )
+            output_ids.append(artifact_id)
+        session.get_one(m.StepRun, step_run_id).output_artifacts = output_ids
+
+        if result.proposals is not None:
+            for row in result.proposals.to_dict("records"):
+                session.add(
+                    m.Proposal(
+                        proposal_id=ids.new_id("proposal"),
+                        run_id=self.run_id,
+                        **{str(k): _text(v) for k, v in row.items()},
+                    )
+                )
+        session.flush()
+
+        if result.decisions is not None and len(result.decisions):
+            self._store_policy_decisions(session, result.decisions)
+
+        if result.rules is not None:
+            for row in result.rules.to_dict("records"):
+                existing = session.get(m.Rule, (row["rule_id"], row["version"]))
+                rule = existing or m.Rule(rule_id=row["rule_id"], version=row["version"])
+                rule.description = row["description"]
+                rule.author = row["author"]
+                rule.backtest = row["backtest"]
+                rule.last_run_id = self.run_id
+                session.add(rule)
+
+        for use in result.assumptions:
+            session.add(
+                m.Assumption(
+                    assumption_id=ids.new_id("assumption"),
+                    run_id=self.run_id,
+                    step=step,
+                    name=use.name,
+                    value=use.value,
+                    unit=use.unit,
+                    source=use.source,
+                )
+            )
+
+    def _store_policy_decisions(self, session: Session, decisions: pd.DataFrame) -> None:
+        """Approvals under a rule policy apply only to proposals nobody has decided yet.
+
+        A person's earlier decision, including a rejection, always stands.
+        """
+        keys = decisions["proposal_key"].tolist()
+        decided = set(
+            session.scalars(
+                select(m.Decision.target_id).where(
+                    m.Decision.target_type == "proposal", m.Decision.target_id.in_(keys)
+                )
+            ).all()
+        )
+        for row in decisions.to_dict("records"):
+            if row["proposal_key"] in decided:
+                continue
+            session.add(
+                m.Decision(
+                    decision_id=ids.new_id("decision"),
+                    target_type="proposal",
+                    target_id=row["proposal_key"],
+                    decision=row["decision"],
+                    reviewer=row["reviewer"],
+                    comment=row["comment"],
+                    run_id=self.run_id,
+                )
+            )
+
+
+class StepFailed(Exception):
+    def __init__(self, step: str) -> None:
+        super().__init__(f"step {step} failed")
+        self.step = step
+
+
+def _text(value: Any) -> Any:
+    """Proposal values are stored as text; missing values stay empty."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    return value if isinstance(value, str) else str(value)
+
+
+def execute_run(run_id: str) -> None:
+    """Execute a claimed run and record its outcome. Failures are recorded, not raised."""
+    try:
+        RunExecution(run_id).execute()
+    except Exception as error:
+        log.exception("run failed", extra={"run_id": run_id})
+        with session_scope() as session:
+            run = session.get_one(m.Run, run_id)
+            run.status = "failed"
+            run.error = str(error)
+            run.finished_at = _now()
+        emit(run_id, "run.status", {"status": "failed"})
+        emit(run_id, "run.finished", {"status": "failed", "result_set_id": None})

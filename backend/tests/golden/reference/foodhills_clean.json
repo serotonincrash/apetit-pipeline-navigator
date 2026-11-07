@@ -1,0 +1,142 @@
+{
+ "rows": 2683,
+ "columns": [
+  "farm_id",
+  "year",
+  "crop_sv",
+  "area_ha",
+  "delivered_t",
+  "n_mineral_kg_ha",
+  "diesel_l_ha",
+  "irrigated_sv",
+  "crop",
+  "irrigated",
+  "yield_t_ha",
+  "record_key",
+  "decl_area_ha",
+  "org_area",
+  "organic_share_soilmap"
+ ],
+ "values": {
+  "farm_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 300,
+   "hash": "f8e1063591369d15d24800b31ee78b109bcce222919597e3c2527ab80fb75dc3"
+  },
+  "year": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 5425017.0,
+   "mean": 2021.9966455460305,
+   "std": 2.5835025426227776,
+   "min": 2018.0,
+   "max": 2026.0
+  },
+  "crop_sv": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 1,
+   "hash": "d8895c25edb4c02edf0c21d21c5474ddc23b40c3138f635e983e714c87d8aa81"
+  },
+  "area_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 43962.65,
+   "mean": 16.385631755497577,
+   "std": 7.976725123776596,
+   "min": 0.9,
+   "max": 57.45
+  },
+  "delivered_t": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 147911.89,
+   "mean": 55.129291837495344,
+   "std": 30.038492366618417,
+   "min": 1.51,
+   "max": 228.61
+  },
+  "n_mineral_kg_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 63462.0,
+   "mean": 23.65337308982482,
+   "std": 7.070214512226292,
+   "min": 0.0,
+   "max": 36.0
+  },
+  "diesel_l_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 239158.0,
+   "mean": 89.13827804696236,
+   "std": 10.04623351914386,
+   "min": 51.0,
+   "max": 137.0
+  },
+  "irrigated_sv": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "7ae0a5dfe91a10e66e4a017071319f1e3d4ab0ea45e02f06d3307d3c2ed1505b"
+  },
+  "crop": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 1,
+   "hash": "3f3efea1ce243e45e3b3706f6138d98e5491093383cfc4e95b94a9841eb2498c"
+  },
+  "irrigated": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 836.0,
+   "mean": 0.31159150204994407,
+   "std": 0.4632301980260504,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "yield_t_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 8996.376807634158,
+   "mean": 3.353103543657905,
+   "std": 0.7167500068533231,
+   "min": 1.415229030339084,
+   "max": 5.787946428571428
+  },
+  "record_key": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2683,
+   "hash": "b8a1c243870fae30d6494b990694c3b9cf25c5a81b821a5486e24cd6199d8ea6"
+  },
+  "decl_area_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 43962.79,
+   "mean": 16.385683935892658,
+   "std": 7.976828364746108,
+   "min": 0.9,
+   "max": 57.44
+  },
+  "org_area": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 1527.01,
+   "mean": 0.569142750652255,
+   "std": 2.878286749371178,
+   "min": 0.0,
+   "max": 39.34
+  },
+  "organic_share_soilmap": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 88.19920206064054,
+   "mean": 0.03287335149483434,
+   "std": 0.15368433717447905,
+   "min": 0.0,
+   "max": 1.0
+  }
+ }
+}

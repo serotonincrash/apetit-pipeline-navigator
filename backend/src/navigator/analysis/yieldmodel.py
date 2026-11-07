@@ -13,12 +13,13 @@ The error is split into a part shared by all farms in a season (weather the feat
 part that differs farm by farm. The risk step needs both: the shared part moves the whole supply,
 the farm part mostly averages out.
 """
+
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 
-import yieldcv as cv
+from navigator.analysis import yieldcv as cv
 
 # Field features: they vary between a farm's parcels, so the within-farm fit can estimate them,
 # and they are what lets predictions differ parcel by parcel.
@@ -50,11 +51,20 @@ def fit(df: pd.DataFrame, cols, lam: float = 0.01, shrink_seasons: float = 2.0) 
     within = resid - d["year"].map(year_mean).values
     sd = float(resid.std())
     return {
-        "features": list(cols), "beta": dict(zip(cols, beta.tolist())),
-        "farm_level": farm_level.to_dict(), "mean_level": mu, "n_rows": int(len(d)), "n_farms": int(len(level)),
-        "resid_sd": sd, "resid_sd_shared": float(year_mean.std()), "resid_sd_farm": float(within.std()),
-        "smearing": float(np.mean(np.exp(resid))),   # Duan's factor: turns exp(log prediction) into an unbiased mean
-        "lam": lam, "shrink_seasons": k,
+        "features": list(cols),
+        "beta": dict(zip(cols, beta.tolist())),
+        "farm_level": farm_level.to_dict(),
+        "mean_level": mu,
+        "n_rows": len(d),
+        "n_farms": len(level),
+        "resid_sd": sd,
+        "resid_sd_shared": float(year_mean.std()),
+        "resid_sd_farm": float(within.std()),
+        "smearing": float(
+            np.mean(np.exp(resid))
+        ),  # Duan's factor: turns exp(log prediction) into an unbiased mean
+        "lam": lam,
+        "shrink_seasons": k,
     }
 
 
@@ -71,7 +81,9 @@ def management_defaults(history: pd.DataFrame, last_n: int = 3) -> pd.DataFrame:
     """Management inputs to assume for future seasons: each farm's average over its last `last_n`
     surveyed seasons for that crop, else the region-crop median. Returns one row per farm and crop."""
     h = history.sort_values("year").groupby(["region", "farm_id", "crop"]).tail(last_n)
-    per_farm = h.groupby(["region", "farm_id", "crop"])[MANAGEMENT].mean(numeric_only=True).reset_index()
+    per_farm = (
+        h.groupby(["region", "farm_id", "crop"])[MANAGEMENT].mean(numeric_only=True).reset_index()
+    )
     per_unit = history.groupby(["region", "crop"])[MANAGEMENT].median(numeric_only=True)
     return per_farm, per_unit
 
@@ -79,9 +91,12 @@ def management_defaults(history: pd.DataFrame, last_n: int = 3) -> pd.DataFrame:
 def parcel_soil_features(parcels: pd.DataFrame) -> pd.DataFrame:
     """The farm-level soil features, written for a single parcel."""
     s = parcels["soil_class_soilmap"]
-    return pd.DataFrame({
-        "organic_share_soilmap": s.eq("organic").astype(float),
-        "sandy_share": s.isin(["sand", "fine_sand"]).astype(float),
-        "clay_pct_wavg": parcels["clay_pct_soilmap"].astype(float),
-        "slope_pct_wavg": parcels["slope_pct"].astype(float),
-    }, index=parcels.index)
+    return pd.DataFrame(
+        {
+            "organic_share_soilmap": s.eq("organic").astype(float),
+            "sandy_share": s.isin(["sand", "fine_sand"]).astype(float),
+            "clay_pct_wavg": parcels["clay_pct_soilmap"].astype(float),
+            "slope_pct_wavg": parcels["slope_pct"].astype(float),
+        },
+        index=parcels.index,
+    )

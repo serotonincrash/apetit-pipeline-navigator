@@ -11,6 +11,7 @@ Supported override types:
 - shift_sowing: move the earliest sowing date by a number of days (rebuilds the weather features).
 - scale_feature: scale one model input, for example heat at flowering, by a factor.
 """
+
 from __future__ import annotations
 
 import json
@@ -41,7 +42,10 @@ def support(spec: dict, models: dict) -> tuple[bool, str]:
     for r, c in units(spec):
         beta = models[f"{r}/{c}"]["beta"]
         if t == "set_irrigated" and beta.get("drought_x_irr", 0) == 0:
-            return False, f"no irrigation effect in the {r}/{c} model: these growers never irrigate in the data"
+            return (
+                False,
+                f"no irrigation effect in the {r}/{c} model: these growers never irrigate in the data",
+            )
         if t == "scale_feature" and beta.get(spec["override"]["feature"], 0) == 0:
             return False, f"the {r}/{c} model gives {spec['override']['feature']} no effect"
     return True, ""
@@ -64,15 +68,23 @@ def relocate(rows: pd.DataFrame, share: float, normal_yield: float) -> tuple[pd.
         area = x.drop_duplicates("parcel_id").groupby("farm_id")["parcel_area_ha"].sum()
         order = loss.loc[scen].reindex(area.index).sort_values(ascending=False)
         total = area.sum()
-        drop = order.index[(area.reindex(order.index).cumsum().shift(fill_value=0) < share * total).values]
+        drop = order.index[
+            (area.reindex(order.index).cumsum().shift(fill_value=0) < share * total).values
+        ]
         moved_ha = area[drop].sum()
         keep_order = order.drop(drop).sort_values()
-        recv = keep_order.index[(area.reindex(keep_order.index).cumsum().shift(fill_value=0) < moved_ha).values]
+        recv = keep_order.index[
+            (area.reindex(keep_order.index).cumsum().shift(fill_value=0) < moved_ha).values
+        ]
         factor = 1 + moved_ha / area[recv].sum()
         x.loc[x["farm_id"].isin(drop), "parcel_area_ha"] = 0.0
         x.loc[x["farm_id"].isin(recv), "parcel_area_ha"] *= factor
-        moved[scen] = {"moved_ha": float(moved_ha), "share": float(moved_ha / total),
-                       "farms_dropped": int(len(drop)), "farms_receiving": int(len(recv))}
+        moved[scen] = {
+            "moved_ha": float(moved_ha),
+            "share": float(moved_ha / total),
+            "farms_dropped": len(drop),
+            "farms_receiving": len(recv),
+        }
         out.append(x)
     return pd.concat(out, ignore_index=True), moved
 
@@ -81,14 +93,17 @@ def apply_override(spec, rows: pd.DataFrame, model: dict, normal_yield: float, r
     """Return (what-if rows, details) for one unit. `rebuild(params_change)` rebuilds rows from the
     weather for overrides that change the crop calendar."""
     import climateproj as cp
+
     o = spec["override"]
     if o["type"] == "relocate_area":
         return relocate(rows, o["share"], normal_yield)
     if o["type"] == "set_irrigated":
-        x = rows.copy(); x["irrigated"] = float(o["value"])
+        x = rows.copy()
+        x["irrigated"] = float(o["value"])
         return cp.with_log_yield(x, model), {}
     if o["type"] == "scale_feature":
-        x = rows.copy(); x[o["feature"]] = x[o["feature"]] * o["factor"]
+        x = rows.copy()
+        x[o["feature"]] = x[o["feature"]] * o["factor"]
         return cp.with_log_yield(x, model), {}
     if o["type"] == "shift_sowing":
         return rebuild(o["days"]), {}

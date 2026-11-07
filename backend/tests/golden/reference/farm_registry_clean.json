@@ -1,0 +1,109 @@
+{
+ "rows": 680,
+ "columns": [
+  "farm_id",
+  "segment",
+  "region",
+  "country",
+  "lat",
+  "lon",
+  "organic_certified",
+  "livestock",
+  "joined_year",
+  "contract_crops",
+  "record_key",
+  "n_corrections"
+ ],
+ "values": {
+  "farm_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 680,
+   "hash": "01980bd3eb1a49af994226f48c2f9afda64db3e1de3ab89f0f3479c05bf6bbe2"
+  },
+  "segment": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 3,
+   "hash": "fa8bf11282eb3a056bbbc0dc1d0c3e43ed510de4fae181fd7b1fbddc00c1983c"
+  },
+  "region": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "719a8b48f9aa4fc2e4032fe592a5a390d4672192d1f00e4161f59d0636393d86"
+  },
+  "country": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "f7713a7fc7e9d7785d28b80b95341e050eab01da2e44dba9c851ce68bc738b85"
+  },
+  "lat": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 40029.96741,
+   "mean": 58.867599132352936,
+   "std": 2.514348903175265,
+   "min": 55.55653,
+   "max": 61.54206
+  },
+  "lon": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 12678.129649999999,
+   "mean": 18.64430830882353,
+   "std": 4.495266139416117,
+   "min": 12.95243,
+   "max": 23.69603
+  },
+  "organic_certified": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 42.0,
+   "mean": 0.061764705882352944,
+   "std": 0.24090490412612897,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "livestock": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 111.0,
+   "mean": 0.16323529411764706,
+   "std": 0.3698522619367187,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "joined_year": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 1365976.0,
+   "mean": 2008.7882352941176,
+   "std": 8.386248815379291,
+   "min": 1995.0,
+   "max": 2023.0
+  },
+  "contract_crops": {
+   "kind": "text",
+   "nulls": 23,
+   "distinct": 11,
+   "hash": "b8a0e1f0f59a8a1fadb5849dc48c8bb52abfd1e054aceae91c3db47ba8354091"
+  },
+  "record_key": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 680,
+   "hash": "13fcdbb601bc24d3aba0e23d4c84aa9977546f956f5a8db861dca6f1c7a0b796"
+  },
+  "n_corrections": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 6.0,
+   "mean": 0.008823529411764706,
+   "std": 0.132646444614324,
+   "min": 0.0,
+   "max": 2.0
+  }
+ }
+}

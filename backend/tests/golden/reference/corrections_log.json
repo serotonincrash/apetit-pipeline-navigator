@@ -1,0 +1,115 @@
+{
+ "rows": 348,
+ "columns": [
+  "correction_id",
+  "rule_id",
+  "issue_type",
+  "table",
+  "record_key",
+  "field",
+  "old_value",
+  "new_value",
+  "action",
+  "evidence",
+  "proposed_by",
+  "proposed_at",
+  "status",
+  "approved_by",
+  "review_comment"
+ ],
+ "values": {
+  "correction_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 348,
+   "hash": "ffc40e36a0869574de2595224a921e53811c52423378b2c5685fdf945b814890"
+  },
+  "rule_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "8e592016c0218ed1bb64e0b0b60c4add52dd839543c9409d0a1167debd56227e"
+  },
+  "issue_type": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "1763bb06a57654967c196623c17a31033f35b4e8a5b74689defa1e2857a52ed7"
+  },
+  "table": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "1e6e8b58588618b760ae894acdae16e099ee25ad816bc18a1f304af352040756"
+  },
+  "record_key": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 334,
+   "hash": "ee3e027932359070c0dcb990405c5027d32dd182bc41653ab84b793b67685247"
+  },
+  "field": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 6,
+   "hash": "37807890da4f662f164414ef48e02a9bb04191f9b0813ceb8a89a0ee9235664f"
+  },
+  "old_value": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 145,
+   "hash": "b45d736768922de278dd177f440e667c0b82a0a0db2c7e2653722b18e885a6b6"
+  },
+  "new_value": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 192,
+   "hash": "bc4e1bd6fed3e6ae8b256aa7e20466322731bec9312d3732ce6d67d5b7d78320"
+  },
+  "action": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "d7eac5cf6a71a14f79cf8b117a5b84ecfd217a2439083381178d0dcad3cba05d"
+  },
+  "evidence": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 307,
+   "hash": "f50f641918ae1540dcc25d05466dfa2a3814bfedc29a67ed2e081014e581de3d"
+  },
+  "proposed_by": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "0e4ca20f12ce0559e206de4a222463806cd4015381111b1a76c34e0e2bc45f76"
+  },
+  "proposed_at": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 1,
+   "hash": "985a3b9481245bbaafda24817beae257c30eb9b95f573e980190d61d4be55037"
+  },
+  "status": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "7ae64c4f82a52f08926619abb7942aba9204311a043b84598203eaca2e8c9d7c"
+  },
+  "approved_by": {
+   "kind": "text",
+   "nulls": 195,
+   "distinct": 5,
+   "hash": "387cb94ce5f3f95c1a5b6e08be56753d8941209948b1598567d867c518ba09d1"
+  },
+  "review_comment": {
+   "kind": "number",
+   "nulls": 348,
+   "sum": 0.0,
+   "mean": null,
+   "std": null,
+   "min": null,
+   "max": null
+  }
+ }
+}

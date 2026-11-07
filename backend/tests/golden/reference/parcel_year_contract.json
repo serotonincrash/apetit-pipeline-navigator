@@ -1,0 +1,174 @@
+{
+ "rows": 48401,
+ "columns": [
+  "parcel_id",
+  "farm_id",
+  "year",
+  "crop",
+  "catch_crop",
+  "status",
+  "prev_crop",
+  "parcel_area_ha",
+  "soil_class_soilmap",
+  "clay_pct_soilmap",
+  "slope_pct",
+  "dist_to_water_m",
+  "drainage",
+  "catchment_id",
+  "p_test_mgl_latest",
+  "buffer_strip",
+  "region",
+  "country",
+  "cell_id",
+  "cell_dist_km"
+ ],
+ "values": {
+  "parcel_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 12721,
+   "hash": "5f969c3eb7b0dfe9710ff50d26f35ebda793a147704d5fc85b2ee50c7baf8a9e"
+  },
+  "farm_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 657,
+   "hash": "82b099dd3fef30faf0b0fda80ca8b439253ee191f779db1175bc4ebd09479b7c"
+  },
+  "year": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 97840403.0,
+   "mean": 2021.4541641701617,
+   "std": 5.7925403782188285,
+   "min": 2012.0,
+   "max": 2031.0
+  },
+  "crop": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "9170b0ca78f4c20897bbb5c390175e1bd316cc376f08d77fc1fbfaac26642d47"
+  },
+  "catch_crop": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 10319.0,
+   "mean": 0.21319807441995,
+   "std": 0.409570654810916,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "status": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "f416d5fa4d1f0d38f9343c1ac023051a2b53e9c3c18e3aae5cf66b1efc4e91ac"
+  },
+  "prev_crop": {
+   "kind": "text",
+   "nulls": 2536,
+   "distinct": 10,
+   "hash": "ca5ff892c70ac1395c9922cb6270223bf5b56d12f4bc8b9d5385fc81bbc90f27"
+  },
+  "parcel_area_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 253561.22999999998,
+   "mean": 5.238760149583686,
+   "std": 4.050006414892829,
+   "min": 0.46,
+   "max": 36.2
+  },
+  "soil_class_soilmap": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "52dfcbd569521b8dcbcb6e3015abe00e57f499a6c6b45d53207359ba17b5a620"
+  },
+  "clay_pct_soilmap": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 1220529.0,
+   "mean": 25.217020309497737,
+   "std": 18.264140009950626,
+   "min": 1.0,
+   "max": 70.0
+  },
+  "slope_pct": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 101023.0,
+   "mean": 2.087208941964009,
+   "std": 1.6524172817594318,
+   "min": 0.1,
+   "max": 14.0
+  },
+  "dist_to_water_m": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 17675764.0,
+   "mean": 365.19419020268174,
+   "std": 303.0044809083574,
+   "min": 8.0,
+   "max": 2792.0
+  },
+  "drainage": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "cb47b85414dd2808ebcba7c5d7be14f4162d9d8b0cb3de701d603460516ece41"
+  },
+  "catchment_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 42,
+   "hash": "4346a52e2d6c420bad3f9d899d29b7eeb24262c237b70921060a5e0d0359ae66"
+  },
+  "p_test_mgl_latest": {
+   "kind": "number",
+   "nulls": 8544,
+   "sum": 655809.2,
+   "mean": 16.454053240334193,
+   "std": 10.26375530765084,
+   "min": 1.7,
+   "max": 119.3
+  },
+  "buffer_strip": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 10494.0,
+   "mean": 0.2168137021962356,
+   "std": 0.4120789112715249,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "region": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "5d21e018125d2cdb14bfc1003f6a6ae6ba030cd5854acf592347beeedf4df5b3"
+  },
+  "country": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "e4b33cec252a24bdd9e11c7ccd25cfe8d6b4c9b82aea2e81210e3dcfee597ba1"
+  },
+  "cell_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 70,
+   "hash": "a2383183d5651607c3d6f71c7d7f4151572d75624a6ca622c15875353e2d2dc6"
+  },
+  "cell_dist_km": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 396701.53,
+   "mean": 8.196143261502861,
+   "std": 3.496900749301795,
+   "min": 0.07,
+   "max": 15.82
+  }
+ }
+}

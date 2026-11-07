@@ -1,0 +1,337 @@
+{
+ "rows": 6120,
+ "columns": [
+  "record_key",
+  "source",
+  "farm_id",
+  "region",
+  "crop",
+  "year",
+  "yield_t_ha",
+  "area_ha",
+  "main_cell_id",
+  "n_cells",
+  "survey_id",
+  "soil_type_reported",
+  "n_mineral_kg_ha",
+  "n_manure_kg_ha",
+  "fertiliser_product",
+  "p_kg_ha",
+  "diesel_l_ha",
+  "lime_t_ha",
+  "sprays",
+  "irrigated",
+  "catch_crop_share",
+  "n_corrections",
+  "soil_misreport_flag",
+  "delivered_t",
+  "country",
+  "organic_certified",
+  "livestock",
+  "joined_year",
+  "n_parcels",
+  "parcel_area_ha",
+  "clay_pct_wavg",
+  "slope_pct_wavg",
+  "organic_share_soilmap",
+  "sandy_share",
+  "same_crop_prev_year_share",
+  "catch_crop_share_parcels"
+ ],
+ "values": {
+  "record_key": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 6120,
+   "hash": "2603fc449c523f594ef0232900c961bd8f9ed1135d33f0c80c791d4bea09e78d"
+  },
+  "source": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "9a1d8149ad35b04f1a3504f6811206c3e1fa5b9ae7f3164be78c39acaf7589db"
+  },
+  "farm_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 657,
+   "hash": "ebaff531c4276d6434a5cb1968c8570a09fff1af022badfdd989a3beea4d9725"
+  },
+  "region": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "cb36ca118753ca369d80076d1f889b801b998501fac7e410979a8bbd30365cc1"
+  },
+  "crop": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "e5813b9d0c149a7c2c0e99a17dfe1f365cc3cc74b6937611d627b1daf734db47"
+  },
+  "year": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 12367507.0,
+   "mean": 2020.834477124183,
+   "std": 3.70790257177086,
+   "min": 2012.0,
+   "max": 2026.0
+  },
+  "yield_t_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 27588.586807634158,
+   "mean": 4.507939020855255,
+   "std": 7.820331876587365,
+   "min": 0.44,
+   "max": 67.37
+  },
+  "area_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 113811.47,
+   "mean": 18.596645424836602,
+   "std": 10.5483705719998,
+   "min": 0.9,
+   "max": 113.32
+  },
+  "main_cell_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 70,
+   "hash": "e10c975a840f254aa1548ec8d0e0c4f84a969d59909c473d035446b19e03db4c"
+  },
+  "n_cells": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 7585.0,
+   "mean": 1.2393790849673203,
+   "std": 0.45094544695623284,
+   "min": 1.0,
+   "max": 4.0
+  },
+  "survey_id": {
+   "kind": "text",
+   "nulls": 2683,
+   "distinct": 3438,
+   "hash": "5b397c562ae3d054a232e41a207a1686ca9572da550d63a737f436b814cacca1"
+  },
+  "soil_type_reported": {
+   "kind": "text",
+   "nulls": 2683,
+   "distinct": 3,
+   "hash": "1fcdd50d42db06b76ed9b5df90c7b54d7e70841603c42fe6f0560840b2668318"
+  },
+  "n_mineral_kg_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 309055.5,
+   "mean": 50.499264705882354,
+   "std": 38.077906537569774,
+   "min": 0.0,
+   "max": 173.8
+  },
+  "n_manure_kg_ha": {
+   "kind": "number",
+   "nulls": 2683,
+   "sum": 7839.9,
+   "mean": 2.2810299679953445,
+   "std": 10.285880768137584,
+   "min": 0.0,
+   "max": 71.5
+  },
+  "fertiliser_product": {
+   "kind": "text",
+   "nulls": 2683,
+   "distinct": 6,
+   "hash": "a60cb512340602a5bd488aa392e1f6175ea3bbdec61d2e69ea7ad94c1b56c333"
+  },
+  "p_kg_ha": {
+   "kind": "number",
+   "nulls": 2683,
+   "sum": 50130.0,
+   "mean": 14.58539423916206,
+   "std": 5.450266379377405,
+   "min": 5.1,
+   "max": 50.0
+  },
+  "diesel_l_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 549044.0,
+   "mean": 89.71307189542483,
+   "std": 21.69927370221988,
+   "min": 46.3,
+   "max": 271.2
+  },
+  "lime_t_ha": {
+   "kind": "number",
+   "nulls": 2683,
+   "sum": 1610.3600000000001,
+   "mean": 0.4685365144020949,
+   "std": 0.7666757192698109,
+   "min": 0.0,
+   "max": 4.33
+  },
+  "sprays": {
+   "kind": "number",
+   "nulls": 2683,
+   "sum": 9591.699999999999,
+   "mean": 2.790718649985452,
+   "std": 1.5391773505524273,
+   "min": 0.0,
+   "max": 10.7
+  },
+  "irrigated": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 1049.0,
+   "mean": 0.17140522875816994,
+   "std": 0.37689346887719,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "catch_crop_share": {
+   "kind": "number",
+   "nulls": 2683,
+   "sum": 731.53,
+   "mean": 0.212839685772476,
+   "std": 0.27795009050799985,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "n_corrections": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 147.0,
+   "mean": 0.024019607843137256,
+   "std": 0.15629155379311552,
+   "min": 0.0,
+   "max": 3.0
+  },
+  "soil_misreport_flag": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 195.0,
+   "mean": 0.031862745098039214,
+   "std": 0.17564894488580632,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "delivered_t": {
+   "kind": "number",
+   "nulls": 3437,
+   "sum": 147911.89,
+   "mean": 55.129291837495344,
+   "std": 30.038492366618417,
+   "min": 1.51,
+   "max": 228.61
+  },
+  "country": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 2,
+   "hash": "515d9d1b35206107d3346cac17694406a15803c9476b5c8383cf7d82805ca4f8"
+  },
+  "organic_certified": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 359.0,
+   "mean": 0.05866013071895425,
+   "std": 0.23500668924420787,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "livestock": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 965.0,
+   "mean": 0.1576797385620915,
+   "std": 0.3644702240973436,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "joined_year": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 12292939.0,
+   "mean": 2008.6501633986927,
+   "std": 8.414553263525647,
+   "min": 1995.0,
+   "max": 2023.0
+  },
+  "n_parcels": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 21607.0,
+   "mean": 3.5305555555555554,
+   "std": 2.1478405072919244,
+   "min": 1.0,
+   "max": 17.0
+  },
+  "parcel_area_ha": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 113811.98,
+   "mean": 18.596728758169935,
+   "std": 10.548209441585614,
+   "min": 0.9,
+   "max": 113.31
+  },
+  "clay_pct_wavg": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 151917.6368418983,
+   "mean": 24.823143274819984,
+   "std": 15.736173795494922,
+   "min": 1.0,
+   "max": 64.0
+  },
+  "slope_pct_wavg": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 12857.656633788156,
+   "mean": 2.100924286566692,
+   "std": 1.1339046923439153,
+   "min": 0.1,
+   "max": 9.4
+  },
+  "organic_share_soilmap": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 292.50035012870023,
+   "mean": 0.04779417485763076,
+   "std": 0.1793565465664351,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "sandy_share": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 1705.0111885879126,
+   "mean": 0.2785965994424694,
+   "std": 0.3814493479164043,
+   "min": 0.0,
+   "max": 1.0
+  },
+  "same_crop_prev_year_share": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 0.0,
+   "mean": 0.0,
+   "std": 0.0,
+   "min": 0.0,
+   "max": 0.0
+  },
+  "catch_crop_share_parcels": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 1367.7428483478188,
+   "mean": 0.22348739352088542,
+   "std": 0.28894536692046835,
+   "min": 0.0,
+   "max": 1.0
+  }
+ }
+}

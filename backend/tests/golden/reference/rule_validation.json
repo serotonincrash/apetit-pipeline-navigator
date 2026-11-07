@@ -1,0 +1,111 @@
+{
+ "rows": 5,
+ "columns": [
+  "rule_id",
+  "issue_type",
+  "dev_labels",
+  "dev_flagged",
+  "tp",
+  "fp",
+  "fn",
+  "precision",
+  "recall",
+  "fixed_value_matches_truth",
+  "flagged_all_years"
+ ],
+ "values": {
+  "rule_id": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "21e40f0ced938728b58b6d5ccf74a62ee9404759d76547b5c6f1660fbfd1f3dc"
+  },
+  "issue_type": {
+   "kind": "text",
+   "nulls": 0,
+   "distinct": 5,
+   "hash": "0b2dd5f5b27b6edf56c161cc5d65bcc6140d688589b7a318afed55e66d75dc81"
+  },
+  "dev_labels": {
+   "kind": "number",
+   "nulls": 1,
+   "sum": 59.0,
+   "mean": 14.75,
+   "std": 13.937359864766353,
+   "min": 2.0,
+   "max": 33.0
+  },
+  "dev_flagged": {
+   "kind": "number",
+   "nulls": 1,
+   "sum": 56.0,
+   "mean": 14.0,
+   "std": 12.649110640673518,
+   "min": 2.0,
+   "max": 30.0
+  },
+  "tp": {
+   "kind": "number",
+   "nulls": 1,
+   "sum": 49.0,
+   "mean": 12.25,
+   "std": 9.878427675158296,
+   "min": 2.0,
+   "max": 23.0
+  },
+  "fp": {
+   "kind": "number",
+   "nulls": 1,
+   "sum": 7.0,
+   "mean": 1.75,
+   "std": 3.5,
+   "min": 0.0,
+   "max": 7.0
+  },
+  "fn": {
+   "kind": "number",
+   "nulls": 1,
+   "sum": 10.0,
+   "mean": 2.5,
+   "std": 5.0,
+   "min": 0.0,
+   "max": 10.0
+  },
+  "precision": {
+   "kind": "number",
+   "nulls": 1,
+   "sum": 3.7666666666666666,
+   "mean": 0.9416666666666667,
+   "std": 0.11666666666666663,
+   "min": 0.7666666666666667,
+   "max": 1.0
+  },
+  "recall": {
+   "kind": "number",
+   "nulls": 1,
+   "sum": 3.6969696969696972,
+   "mean": 0.9242424242424243,
+   "std": 0.1515151515151515,
+   "min": 0.696969696969697,
+   "max": 1.0
+  },
+  "fixed_value_matches_truth": {
+   "kind": "number",
+   "nulls": 2,
+   "sum": 3.0,
+   "mean": 1.0,
+   "std": 0.0,
+   "min": 1.0,
+   "max": 1.0
+  },
+  "flagged_all_years": {
+   "kind": "number",
+   "nulls": 0,
+   "sum": 345.0,
+   "mean": 69.0,
+   "std": 76.99675317829967,
+   "min": 3.0,
+   "max": 195.0
+  }
+ }
+}
