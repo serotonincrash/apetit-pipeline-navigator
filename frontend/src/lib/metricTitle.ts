@@ -14,7 +14,12 @@ export function metricTitle(metric: Metric): string {
   ]
     .filter(Boolean)
     .join(", ");
-  return [measureLabel(metric.name), where, scenario, valueWithUnit(metric.unit, metric.value)]
+  return [
+    measureLabel(metric.name),
+    where,
+    scenario,
+    valueWithUnit(metric.unit, metric.value, metric.name),
+  ]
     .filter(Boolean)
     .join(". ");
 }

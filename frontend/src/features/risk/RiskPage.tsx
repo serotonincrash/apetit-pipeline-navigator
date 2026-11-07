@@ -37,7 +37,7 @@ export interface RiskSearch {
 export function RiskPage({ search }: { search: RiskSearch }) {
   const navigate = useNavigate({ from: "/risk" });
   const { openSources } = useSources();
-  const resultSets = useListResultSets();
+  const resultSets = useListResultSets({ recipe_id: "farm_climate_risk" });
   const ordered = useMemo(
     () => [...(resultSets.data ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [resultSets.data],

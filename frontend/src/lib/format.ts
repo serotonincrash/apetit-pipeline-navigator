@@ -82,8 +82,22 @@ export function duration(seconds: number): string {
   return `${minutes} min ${Math.round(seconds - minutes * 60)} s`;
 }
 
-/** A metric value in the style of its unit, without the unit. */
-export function metricValue(unit: string, value: number): string {
+// Recipe 2 adds up meter readings, so its figures keep whole units; two significant figures
+// would hide its differences from the answer inventories, which are a few tonnes.
+const MEASURED = /^(scope2_electricity|compare_inventory)\./;
+
+/** A measured amount: 1438.08 is "1,438", 4.46 is "4.5", and under 0.05 is "0". */
+export function measured(value: number): string {
+  const digits = Math.abs(value) < 10 ? 1 : 0;
+  const rounded = Number(value.toFixed(digits));
+  return new Intl.NumberFormat("en-GB", { maximumFractionDigits: digits }).format(
+    rounded === 0 ? 0 : rounded,
+  );
+}
+
+/** A metric value in the style of its unit, without the unit. `name` picks measured amounts. */
+export function metricValue(unit: string, value: number, name = ""): string {
+  if (MEASURED.test(name)) return measured(value);
   if (unit.startsWith("€")) return euros(value);
   if (unit.includes("CO2e")) return tonnes(value);
   if (unit === "%") return percent(value);
@@ -124,8 +138,8 @@ export function rangeText(unit: string, low: number, high: number): string {
 }
 
 /** A value with its unit in words, for a headline: "€140k per year", "12.6% of seasons". */
-export function valueWithUnit(unit: string, value: number): string {
-  const text = metricValue(unit, value);
+export function valueWithUnit(unit: string, value: number, name = ""): string {
+  const text = metricValue(unit, value, name);
   if (unit === "%") return text;
   if (unit === "share") return `${text} of seasons`;
   if (unit.startsWith("€")) return `${text}${unit.slice(1)}`;

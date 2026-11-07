@@ -28,7 +28,7 @@ export function ActionsPage({ search }: { search: ActionsSearch }) {
   const navigate = useNavigate({ from: "/actions" });
   const canDecide = usePersona().role === "sustainability_specialist";
   const scenario = search.scenario ?? DEFAULT_SCENARIO;
-  const resultSets = useListResultSets();
+  const resultSets = useListResultSets({ recipe_id: "farm_climate_risk" });
   const ordered = useMemo(
     () => [...(resultSets.data ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)),
     [resultSets.data],

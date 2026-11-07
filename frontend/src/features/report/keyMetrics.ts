@@ -17,3 +17,24 @@ export function keyMetrics(metrics: Record<string, Metric>): Metric[] {
     return found ? [found] : [];
   });
 }
+
+const SCOPE2_TILE_NAMES = [
+  "scope2_electricity.electricity_use_mwh",
+  "scope2_electricity.location_based_tco2e",
+  "scope2_electricity.market_based_tco2e",
+];
+
+/** The whole-company totals of the newest year the report cites, one per measure. */
+export function scope2KeyMetrics(metrics: Record<string, Metric>): Metric[] {
+  const totals = Object.values(metrics).filter(
+    (metric) => metric.site === null && SCOPE2_TILE_NAMES.includes(metric.name),
+  );
+  const newest = totals
+    .map((metric) => metric.period ?? "")
+    .sort()
+    .at(-1);
+  return SCOPE2_TILE_NAMES.flatMap((name) => {
+    const found = totals.find((metric) => metric.name === name && (metric.period ?? "") === newest);
+    return found ? [found] : [];
+  });
+}

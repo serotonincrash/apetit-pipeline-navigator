@@ -2,13 +2,16 @@ import { Link } from "@tanstack/react-router";
 import { Fragment, type ReactNode } from "react";
 import type { PersonaRole } from "@/api/generated/model";
 import { usePersona } from "@/api/persona";
+import { useRecipe } from "@/api/recipe";
 import { PersonaSwitcher } from "@/components/PersonaSwitcher";
+import { RecipeSwitcher } from "@/components/RecipeSwitcher";
+import type { RecipeId } from "@/lib/recipes";
 
 const LINK = "px-3 py-3 text-muted-foreground hover:text-foreground";
 const ACTIVE = { className: "px-3 py-3 font-medium text-foreground border-b-2 border-primary" };
 const ANY_SEARCH = { includeSearch: false };
 
-type Screen = "runs" | "review" | "risk" | "actions" | "report";
+type Screen = "runs" | "review" | "risk" | "scope2" | "actions" | "report";
 
 const TABS: Record<Screen, ReactNode> = {
   runs: (
@@ -25,6 +28,11 @@ const TABS: Record<Screen, ReactNode> = {
       activeOptions={ANY_SEARCH}
     >
       Data review
+    </Link>
+  ),
+  scope2: (
+    <Link to="/scope2" className={LINK} activeProps={ACTIVE} activeOptions={ANY_SEARCH}>
+      Scope 2
     </Link>
   ),
   actions: (
@@ -44,10 +52,16 @@ const TABS: Record<Screen, ReactNode> = {
   ),
 };
 
+/** The tabs of each recipe, in order. */
+const SCREENS_BY_RECIPE: Record<RecipeId, Screen[]> = {
+  farm_climate_risk: ["review", "runs", "risk", "actions", "report"],
+  energy_meter_check: ["review", "runs", "scope2", "report"],
+};
+
 /** Each role's own screens come first. Both roles can read every screen. */
-const SCREENS_BY_ROLE: Record<PersonaRole, { own: Screen[]; other: Screen[] }> = {
-  data_specialist: { own: ["review", "runs"], other: ["risk", "actions", "report"] },
-  sustainability_specialist: { own: ["risk", "actions", "report"], other: ["review", "runs"] },
+const OWN_SCREENS: Record<PersonaRole, Screen[]> = {
+  data_specialist: ["review", "runs"],
+  sustainability_specialist: ["risk", "scope2", "actions", "report"],
 };
 
 function tabs(screens: Screen[]) {
@@ -55,7 +69,10 @@ function tabs(screens: Screen[]) {
 }
 
 export function TopBar() {
-  const { own, other } = SCREENS_BY_ROLE[usePersona().role];
+  const screens = SCREENS_BY_RECIPE[useRecipe()];
+  const ownScreens = OWN_SCREENS[usePersona().role];
+  const own = ownScreens.filter((screen) => screens.includes(screen));
+  const other = screens.filter((screen) => !ownScreens.includes(screen));
   return (
     <header className="flex items-center justify-between border-b px-6 print:hidden">
       <nav aria-label="Main" className="flex items-center">
@@ -64,7 +81,10 @@ export function TopBar() {
         <span aria-hidden="true" className="mx-2 h-5 border-l" />
         {tabs(other)}
       </nav>
-      <PersonaSwitcher />
+      <div className="flex items-center gap-3">
+        <RecipeSwitcher />
+        <PersonaSwitcher />
+      </div>
     </header>
   );
 }

@@ -21,8 +21,8 @@ export function TokenText({ text, metrics, insights }: TokenTextProps) {
         if (piece.kind === "metric") {
           const metric = metrics[piece.id];
           if (!metric) return <span key={key}>(number missing)</span>;
-          const unit = valueWithUnit(metric.unit, metric.value).slice(
-            metricValue(metric.unit, metric.value).length,
+          const unit = valueWithUnit(metric.unit, metric.value, metric.name).slice(
+            metricValue(metric.unit, metric.value, metric.name).length,
           );
           return (
             <span key={key}>

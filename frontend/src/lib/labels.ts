@@ -52,6 +52,8 @@ export const DEFAULT_TRANSITION: Record<string, string> = {
 };
 
 const TABLES: Record<string, string> = {
+  energy_meter_readings: "Energy-meter readings",
+  energy_meter_readings_clean: "Energy-meter readings, cleaned",
   farm_survey: "Farm survey",
   farm_survey_clean: "Farm survey, cleaned",
   farm_registry: "Farm registry",
@@ -126,6 +128,11 @@ const COLUMNS: Record<string, string> = {
 };
 
 const MEASURES: Record<string, string> = {
+  "scope2_electricity.electricity_use_mwh": "Electricity use",
+  "scope2_electricity.location_based_tco2e": "Scope 2, location-based",
+  "scope2_electricity.market_based_tco2e": "Scope 2, market-based",
+  "compare_inventory.location_based_difference_tco2e": "Location-based difference from inventory",
+  "compare_inventory.market_based_difference_tco2e": "Market-based difference from inventory",
   "price_risk.expected_cost_eur": "Expected cost per year",
   "price_risk.one_in_ten_cost_eur": "Cost in a 1-in-10 bad year",
   "price_risk.expected_import_tco2e": "Extra emissions per year",

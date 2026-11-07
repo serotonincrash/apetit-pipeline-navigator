@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { getListRunsQueryKey, useCreateRun, useListRuns } from "@/api/generated/client";
 import { requireName } from "@/api/persona";
+import { useRecipe } from "@/api/recipe";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { TableSkeleton } from "@/components/TableSkeleton";
@@ -10,12 +11,14 @@ import { Button } from "@/components/ui/button";
 import { RecipeRunsTable } from "@/features/runs/RecipeRunsTable";
 import { ReportDraftsTable } from "@/features/runs/ReportDraftsTable";
 import { messageOf } from "@/lib/errors";
+import { checkedData } from "@/lib/recipes";
 
 export function RunsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const recipe = useRecipe();
   const runs = useListRuns(
-    { limit: 100 },
+    { limit: 100, recipe_id: recipe },
     {
       query: {
         refetchInterval: (query) =>
@@ -56,7 +59,7 @@ export function RunsPage() {
             onClick={() => {
               if (requireName()) {
                 start.mutate({
-                  data: { recipe_id: "farm_climate_risk", run_fix_proposer: fixProposer },
+                  data: { recipe_id: recipe, run_fix_proposer: fixProposer },
                 });
               }
             }}
@@ -77,7 +80,9 @@ export function RunsPage() {
         />
       ) : null}
       {runs.data && runs.data.items.length === 0 ? (
-        <EmptyState title="No runs yet.">Start a run to check the farm data.</EmptyState>
+        <EmptyState title="No runs yet.">
+          Start a run to check the {checkedData(recipe)}.
+        </EmptyState>
       ) : null}
       {runs.data && runs.data.items.length > 0 ? (
         <>

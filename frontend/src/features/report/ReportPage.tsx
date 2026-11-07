@@ -1,6 +1,7 @@
 import { ApiError } from "@/api/fetcher";
-import { useGetReport, useListResultSets } from "@/api/generated/client";
+import { useGetReport, useGetRun, useListResultSets } from "@/api/generated/client";
 import { usePersona } from "@/api/persona";
+import { useRecipe } from "@/api/recipe";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { TableSkeleton } from "@/components/TableSkeleton";
@@ -9,12 +10,15 @@ import { ReportBar } from "./ReportBar";
 import { ReportDashboard } from "./ReportDashboard";
 import { ReportParagraph } from "./ReportParagraph";
 import { ReportStatusLine } from "./ReportStatusLine";
+import { Scope2Dashboard } from "./Scope2Dashboard";
 import { useLatestDraftRun } from "./useLatestDraftRun";
 
 export function ReportPage({ resultSetId }: { resultSetId: string }) {
   const isSpecialist = usePersona().role === "sustainability_specialist";
-  const resultSets = useListResultSets();
+  const resultSets = useListResultSets({ recipe_id: useRecipe() });
   const resultSet = resultSets.data?.find((item) => item.result_set_id === resultSetId);
+  const run = useGetRun(resultSet?.run_id ?? "", { query: { enabled: resultSet !== undefined } });
+  const energy = run.data?.recipe_id === "energy_meter_check";
   const report = useGetReport(resultSetId, { query: { retry: false } });
   const draftRun = useLatestDraftRun(resultSet?.run_id, resultSetId);
 
@@ -28,7 +32,9 @@ export function ReportPage({ resultSetId }: { resultSetId: string }) {
   return (
     <main className="mx-auto max-w-7xl space-y-6 px-6 py-6 print:max-w-none print:px-0 print:py-0">
       <div className="space-y-1">
-        <h1 className="text-lg font-semibold">Climate risk report</h1>
+        <h1 className="text-lg font-semibold">
+          {run.data ? (energy ? "Scope 2 report" : "Climate risk report") : "Report"}
+        </h1>
         {resultSet ? <ReportStatusLine resultSet={resultSet} report={shown} /> : null}
       </div>
 
@@ -80,7 +86,13 @@ export function ReportPage({ resultSetId }: { resultSetId: string }) {
 
       {shown && !drafting ? (
         <>
-          <ReportDashboard report={shown} />
+          {run.data ? (
+            energy ? (
+              <Scope2Dashboard report={shown} />
+            ) : (
+              <ReportDashboard report={shown} />
+            )
+          ) : null}
           <article className="mx-auto max-w-column print:max-w-none">
             {shown.paragraphs.map((paragraph, index) => (
               <ReportParagraph

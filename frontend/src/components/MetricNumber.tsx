@@ -12,7 +12,7 @@ interface MetricNumberProps {
 /** Every result number in the app. Clicking it opens the sources behind it. */
 export function MetricNumber({ metric, showRange, className }: MetricNumberProps) {
   const { openSources } = useSources();
-  const text = metricValue(metric.unit, metric.value);
+  const text = metricValue(metric.unit, metric.value, metric.name);
   const range =
     showRange && metric.low !== null && metric.high !== null
       ? rangeText(metric.unit, metric.low, metric.high)

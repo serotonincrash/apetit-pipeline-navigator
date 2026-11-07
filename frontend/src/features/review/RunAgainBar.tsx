@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useCreateRun, useGetRun } from "@/api/generated/client";
 import { requireName } from "@/api/persona";
+import { useRecipe } from "@/api/recipe";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { messageOf } from "@/lib/errors";
@@ -8,6 +9,7 @@ import { messageOf } from "@/lib/errors";
 /** Shown once decisions are in that the latest run has not used. */
 export function RunAgainBar({ decisions, runId }: { decisions: number; runId: string }) {
   const navigate = useNavigate();
+  const recipe = useRecipe();
   const run = useGetRun(runId);
   // The next run keeps the option, so proposals the assistant suggested stay in the queue.
   const stepParams = run.data?.params.step_params as
@@ -31,7 +33,7 @@ export function RunAgainBar({ decisions, runId }: { decisions: number; runId: st
         onClick={() => {
           if (requireName()) {
             start.mutate({
-              data: { recipe_id: "farm_climate_risk", run_fix_proposer: fixProposer },
+              data: { recipe_id: run.data?.recipe_id ?? recipe, run_fix_proposer: fixProposer },
             });
           }
         }}

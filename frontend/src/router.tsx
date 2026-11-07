@@ -4,8 +4,11 @@ import {
   createRouter,
   Outlet,
   redirect,
+  retainSearchParams,
 } from "@tanstack/react-router";
 import { getPersona } from "@/api/persona";
+import { getRecipe, setRecipe } from "@/api/recipe";
+import { RecipeGate } from "@/components/RecipeGate";
 import { SourcesProvider } from "@/components/SourcesContext";
 import { TopBar } from "@/components/TopBar";
 import { ActionsPage, type ActionsSearch } from "@/features/actions/ActionsPage";
@@ -15,6 +18,8 @@ import { DataReviewPage, type ReviewSearch } from "@/features/review/DataReviewP
 import { RiskPage, type RiskSearch } from "@/features/risk/RiskPage";
 import { RunDetailPage } from "@/features/runs/RunDetailPage";
 import { RunsPage } from "@/features/runs/RunsPage";
+import { Scope2Page, type Scope2Search } from "@/features/scope2/Scope2Page";
+import { isRecipeId, type RecipeId } from "@/lib/recipes";
 import type { Measure } from "@/lib/risk";
 
 function text(value: unknown): string | undefined {
@@ -22,9 +27,15 @@ function text(value: unknown): string | undefined {
 }
 
 const rootRoute = createRootRoute({
-  validateSearch: (search: Record<string, unknown>): { sources?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { sources?: string; recipe?: RecipeId } => ({
     sources: text(search.sources),
+    recipe: isRecipeId(search.recipe) ? search.recipe : undefined,
   }),
+  search: { middlewares: [retainSearchParams(["recipe"])] },
+  // A link carries its recipe, so opening it switches the app to that recipe.
+  beforeLoad: ({ search }) => {
+    if (search.recipe) setRecipe(search.recipe);
+  },
   component: () => (
     <SourcesProvider>
       <TopBar />
@@ -37,7 +48,9 @@ const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
   beforeLoad: () => {
-    if (getPersona().role === "sustainability_specialist") throw redirect({ to: "/risk" });
+    if (getPersona().role === "sustainability_specialist") {
+      throw redirect({ to: getRecipe() === "energy_meter_check" ? "/scope2" : "/risk" });
+    }
     throw redirect({ to: "/review/data", search: { status: "open" } });
   },
 });
@@ -89,7 +102,11 @@ const riskRoute = createRoute({
     panel: search.panel === "assumptions" ? "assumptions" : undefined,
   }),
   component: function RiskRoute() {
-    return <RiskPage search={riskRoute.useSearch()} />;
+    return (
+      <RecipeGate recipe="farm_climate_risk" screen="Risk view">
+        <RiskPage search={riskRoute.useSearch()} />
+      </RecipeGate>
+    );
   },
 });
 
@@ -101,7 +118,26 @@ const actionsRoute = createRoute({
     scenario: text(search.scenario),
   }),
   component: function ActionsRoute() {
-    return <ActionsPage search={actionsRoute.useSearch()} />;
+    return (
+      <RecipeGate recipe="farm_climate_risk" screen="Actions">
+        <ActionsPage search={actionsRoute.useSearch()} />
+      </RecipeGate>
+    );
+  },
+});
+
+const scope2Route = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/scope2",
+  validateSearch: (search: Record<string, unknown>): Scope2Search => ({
+    set: text(search.set),
+  }),
+  component: function Scope2Route() {
+    return (
+      <RecipeGate recipe="energy_meter_check" screen="Scope 2">
+        <Scope2Page search={scope2Route.useSearch()} />
+      </RecipeGate>
+    );
   },
 });
 
@@ -126,6 +162,7 @@ const routeTree = rootRoute.addChildren([
   runRoute,
   reviewRoute,
   riskRoute,
+  scope2Route,
   reportIndexRoute,
   reportRoute,
 ]);

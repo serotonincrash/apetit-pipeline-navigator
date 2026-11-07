@@ -1,12 +1,13 @@
 import { Navigate } from "@tanstack/react-router";
 import { useListResultSets } from "@/api/generated/client";
+import { useRecipe } from "@/api/recipe";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { TableSkeleton } from "@/components/TableSkeleton";
 
 /** The Report tab: sends the person to the report of the newest results. */
 export function ReportRedirect() {
-  const resultSets = useListResultSets();
+  const resultSets = useListResultSets({ recipe_id: useRecipe() });
   const newest = [...(resultSets.data ?? [])].sort((a, b) =>
     b.created_at.localeCompare(a.created_at),
   )[0];

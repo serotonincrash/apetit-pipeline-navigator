@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useGetRun, useListProposals, useListRules } from "@/api/generated/client";
 import type { Proposal } from "@/api/generated/model";
 import { usePersona } from "@/api/persona";
+import { useRecipe } from "@/api/recipe";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { TableSkeleton } from "@/components/TableSkeleton";
@@ -15,6 +16,7 @@ import { groupByDataCheck, openFixIdsOf } from "@/features/review/proposalGroups
 import { RunAgainBar } from "@/features/review/RunAgainBar";
 import { useProposalDecision } from "@/features/review/useProposalDecision";
 import { sourceName } from "@/lib/labels";
+import { checkedData } from "@/lib/recipes";
 
 export interface ReviewSearch {
   rule?: string;
@@ -34,7 +36,8 @@ export function DataReviewPage({ search }: { search: ReviewSearch }) {
   const navigate = useNavigate({ from: "/review/data" });
   const persona = usePersona();
   const canDecide = persona.role === "data_specialist";
-  const proposals = useListProposals({ limit: 2000 });
+  const recipe = useRecipe();
+  const proposals = useListProposals({ limit: 2000, recipe_id: recipe });
   const rules = useListRules();
   const [mode, setMode] = useState<"reject" | "edit">();
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -162,7 +165,7 @@ export function DataReviewPage({ search }: { search: ReviewSearch }) {
           ) : null}
           {proposals.data && all.length === 0 ? (
             <EmptyState title="No suggested fixes yet.">
-              Start a run to check the farm data.
+              Start a run to check the {checkedData(recipe)}.
             </EmptyState>
           ) : null}
           {proposals.data && all.length > 0 && filtered.length === 0 ? (
