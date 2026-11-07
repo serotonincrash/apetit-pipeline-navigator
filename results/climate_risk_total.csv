@@ -1,0 +1,9 @@
+scenario,ngfs,expected_cost_keur,one_in_ten_cost_keur,expected_import_tco2e,one_in_ten_import_tco2e,"climate adds, expected kEUR/yr"
+baseline,today,400.208,948.157,1439.375,3719.432,0.0
+ssp126,below_2c,459.804,929.23,1598.705,3900.085,59.596
+ssp126,low_demand,453.741,916.557,1598.705,3900.085,53.534
+ssp126,net_zero_2050,441.057,890.046,1598.705,3900.085,40.849
+ssp245,delayed_transition,435.769,934.046,1611.553,4006.602,35.561
+ssp245,fragmented_world,466.591,998.894,1611.553,4006.602,66.383
+ssp245,ndcs,463.96,993.359,1611.553,4006.602,63.752
+ssp585,current_policies,468.192,1048.208,1742.477,4144.016,67.985
