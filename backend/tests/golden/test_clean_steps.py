@@ -1,6 +1,8 @@
 """Steps 1 to 4 reproduce notebooks/c1_clean.ipynb: the corrections log, the rule backtest and
 the cleaned and joined tables."""
 
+import json
+
 import pytest
 
 from navigator.recipes.core import Artifact, StepResult
@@ -21,17 +23,23 @@ def test_proposal_counts_per_rule(farm_checks: StepResult) -> None:
     assert counts == {"R1": 18, "R2": 44, "R3": 85, "R4": 195, "R5": 6}
 
 
-def test_policy_approves_exactly_the_passing_fixes(farm_checks: StepResult) -> None:
-    assert farm_checks.proposals is not None and farm_checks.decisions is not None
+def test_step_writes_no_decisions(farm_checks: StepResult) -> None:
+    assert farm_checks.decisions is None
+
+
+def test_every_proposal_has_structured_evidence(farm_checks: StepResult) -> None:
+    assert farm_checks.proposals is not None
     proposals = farm_checks.proposals
-    expected = proposals.loc[
-        proposals["rule_id"].isin(["R1", "R2", "R3", "R5"]) & proposals["action"].eq("fix"),
-        "proposal_key",
-    ]
-    decisions = farm_checks.decisions
-    assert sorted(decisions["proposal_key"]) == sorted(expected)
-    assert set(decisions["decision"]) == {"approve"}
-    assert set(decisions["reviewer"]) == {"Rule policy"}
+    for rule_id, record_key, evidence in zip(
+        proposals["rule_id"], proposals["record_key"], proposals["evidence"], strict=True
+    ):
+        assert set(evidence) == {"summary", "record_keys", "query", "values"}
+        assert isinstance(evidence["summary"], str) and evidence["summary"]
+        assert record_key in evidence["record_keys"]
+        assert isinstance(evidence["query"], dict) and evidence["query"]["rule"] == rule_id
+        assert evidence["values"]
+        assert all(type(v) is float for v in evidence["values"].values())
+        assert json.loads(json.dumps(evidence)) == evidence
 
 
 def test_rules_carry_their_backtest(farm_checks: StepResult) -> None:
@@ -55,6 +63,7 @@ def test_rules_carry_their_backtest(farm_checks: StepResult) -> None:
 def test_proposals_match_corrections_log(farm_checks: StepResult) -> None:
     assert farm_checks.proposals is not None
     proposals = farm_checks.proposals.rename(columns={"proposal_key": "correction_id"})
+    proposals["evidence"] = [e["summary"] for e in proposals["evidence"]]
     assert_matches(
         "corrections_log",
         as_read_from_csv(proposals),

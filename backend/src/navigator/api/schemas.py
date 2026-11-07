@@ -261,8 +261,17 @@ class Proposal(ApiModel):
     latest_decision: Decision | None
 
 
+class Evidence(ApiModel):
+    summary: str = Field(description="One line of plain text saying why the rule fired.")
+    record_keys: list[str] = Field(description="The records the proposal rests on.")
+    query: dict[str, Any] = Field(
+        description="How to reproduce the finding: rule, comparison, group."
+    )
+    values: dict[str, float] = Field(description="Named numbers the explanation cites.")
+
+
 class ProposalDetail(Proposal):
-    evidence: str
+    evidence: Evidence
     explanation: str | None
     decisions: list[Decision] = Field(description="Every decision on this proposal, oldest first.")
 

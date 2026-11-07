@@ -2695,6 +2695,45 @@
         ],
         "title": "ErrorMessage"
       },
+      "Evidence": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "One line of plain text saying why the rule fired."
+          },
+          "record_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Record Keys",
+            "description": "The records the proposal rests on."
+          },
+          "query": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Query",
+            "description": "How to reproduce the finding: rule, comparison, group."
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Values",
+            "description": "Named numbers the explanation cites."
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "record_keys",
+          "query",
+          "values"
+        ],
+        "title": "Evidence"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3173,8 +3212,7 @@
             ]
           },
           "evidence": {
-            "type": "string",
-            "title": "Evidence"
+            "$ref": "#/components/schemas/Evidence"
           },
           "explanation": {
             "anyOf": [

@@ -8,7 +8,7 @@ from navigator.db import models as m
 from navigator.db.session import session_scope
 from navigator.worker.runner import proposals_with_status
 from tests.api.conftest import PERSONA
-from tests.api.records import add_proposal, add_run
+from tests.api.records import EVIDENCE, add_proposal, add_run
 
 pytestmark = pytest.mark.api
 
@@ -58,7 +58,7 @@ def test_status_follows_the_latest_decision(client: TestClient) -> None:
     detail = client.get(f"/api/proposals/{fix}").json()
     assert [d["decision"] for d in detail["decisions"]] == ["approve", "reject", "edit"]
     assert detail["latest_decision"]["edited_value"] == "5.2"
-    assert detail["evidence"] == "Yield is 1000 times the farm median."
+    assert detail["evidence"] == EVIDENCE
 
 
 def test_decisions_carry_over_to_the_next_run(client: TestClient) -> None:

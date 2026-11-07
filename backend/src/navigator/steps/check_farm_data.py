@@ -1,8 +1,8 @@
 """Step 2: check_farm_data. Rules R1 to R5 and their backtest, from notebooks/c1_clean.ipynb
 sections 1 to 5.
 
-The step only proposes. Fixes reach the cleaned tables in apply_approved, once they are approved
-here by the rule policy or later by a reviewer.
+The step only proposes and writes no decisions. Fixes reach the cleaned tables in apply_approved,
+once a reviewer has approved them.
 """
 
 from collections.abc import Iterable, Mapping
@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 
 from navigator.recipes.core import (
-    DECISION_COLUMNS,
     PROPOSAL_COLUMNS,
     RULE_COLUMNS,
     Artifact,
@@ -67,6 +66,18 @@ def survey_with_declared_area(farm_survey: pd.DataFrame, declared: pd.DataFrame)
     return survey
 
 
+def evidence_dict(
+    summary: str, record_key: str, query: dict[str, Any], values: dict[str, float]
+) -> dict[str, Any]:
+    """Evidence as stored on a proposal. Values are plain floats so the dict serialises to JSON."""
+    return {
+        "summary": summary,
+        "record_keys": [record_key],
+        "query": query,
+        "values": {name: float(value) for name, value in values.items()},
+    }
+
+
 def rule_proposals(
     rule_id: str,
     issue_type: str,
@@ -75,7 +86,7 @@ def rule_proposals(
     field: str,
     old_values: Iterable[Any],
     new_values: Iterable[Any],
-    evidence: Iterable[str],
+    evidence: Iterable[dict[str, Any]],
     action: str,
 ) -> pd.DataFrame:
     proposals = pd.DataFrame(
@@ -103,9 +114,20 @@ def find_tenfold_yields(survey: pd.DataFrame, max_ratio: float) -> pd.DataFrame:
     median = survey.groupby(["crop", "year"])["yield_t_ha"].transform("median")
     ratio = survey["yield_t_ha"] / median
     hits = survey[ratio > max_ratio]
+    query = {
+        "rule": "R1",
+        "compare": "yield_t_ha / median(yield_t_ha by crop, year)",
+        "threshold": max_ratio,
+    }
     evidence = [
-        f"{y} t/ha is {r:.1f}x the {c} {yr} median ({m:.2f}); /10 = {y / 10:.2f}"
-        for y, r, c, yr, m in zip(
+        evidence_dict(
+            f"{y} t/ha is {r:.1f}x the {c} {yr} median ({m:.2f}); /10 = {y / 10:.2f}",
+            key,
+            {**query, "group": {"crop": c, "year": int(yr)}},
+            {"yield_t_ha": y, "median": m, "ratio_to_median": r},
+        )
+        for key, y, r, c, yr, m in zip(
+            hits["record_key"],
             hits["yield_t_ha"],
             ratio[hits.index],
             hits["crop"],
@@ -142,10 +164,29 @@ def find_shifted_nitrogen(
     hits = survey[high | low]
     new = np.where(high[hits.index], hits["n_mineral_kg_ha"] / 10, hits["n_mineral_kg_ha"] * 10)
     new = new.round(1)
+    query = {
+        "rule": "R2",
+        "compare": "n_mineral_kg_ha / median(n_mineral_kg_ha by farm_id, crop)",
+        "fallback": "median(n_mineral_kg_ha by crop) when the farm median is 0",
+        "threshold_high": ratio_high,
+        "threshold_low": ratio_low,
+    }
     evidence = [
-        f"{v} kg N/ha is {r:.2f}x the farm/crop reference ({f:.1f}); shifted value {nv}"
-        for v, r, f, nv in zip(
-            hits["n_mineral_kg_ha"], ratio[hits.index], reference[hits.index], new, strict=True
+        evidence_dict(
+            f"{v} kg N/ha is {r:.2f}x the farm/crop reference ({f:.1f}); shifted value {nv}",
+            key,
+            {**query, "group": {"farm_id": fid, "crop": c}},
+            {"n_mineral_kg_ha": v, "reference": f, "ratio_to_reference": r, "shifted_value": nv},
+        )
+        for key, fid, c, v, r, f, nv in zip(
+            hits["record_key"],
+            hits["farm_id"],
+            hits["crop"],
+            hits["n_mineral_kg_ha"],
+            ratio[hits.index],
+            reference[hits.index],
+            new,
+            strict=True,
         )
     ]
     return rule_proposals(
@@ -165,9 +206,19 @@ def find_area_mismatches(survey: pd.DataFrame, tolerance: float) -> pd.DataFrame
     """R3: survey areas that differ from the declared parcels, replaced by the parcel total."""
     ratio: pd.Series[float] = survey["area_ha"] / survey["decl_area_ha"]
     hits = survey[(ratio - 1).abs() > tolerance]
+    query = {
+        "rule": "R3",
+        "compare": "area_ha / sum(area_ha of declared parcels by farm_id, year, crop)",
+        "tolerance": tolerance,
+    }
     evidence = [
-        f"survey {a} ha vs {d:.2f} ha in declared parcels (ratio {a / d:.2f})"
-        for a, d in zip(hits["area_ha"], hits["decl_area_ha"], strict=True)
+        evidence_dict(
+            f"survey {a} ha vs {d:.2f} ha in declared parcels (ratio {a / d:.2f})",
+            key,
+            query,
+            {"area_ha": a, "declared_area_ha": d, "ratio_to_declared": a / d},
+        )
+        for key, a, d in zip(hits["record_key"], hits["area_ha"], hits["decl_area_ha"], strict=True)
     ]
     return rule_proposals(
         "R3",
@@ -188,9 +239,26 @@ def find_soil_misreports(survey: pd.DataFrame, organic_share_threshold: float) -
         (survey["organic_share_soilmap"] >= organic_share_threshold)
         & survey["soil_type_reported"].eq("Mineral soil")
     ]
+    query = {
+        "rule": "R4",
+        "compare": "organic_share_soilmap of declared parcels, where soil_type_reported is "
+        "Mineral soil",
+        "threshold": organic_share_threshold,
+    }
     evidence = [
-        f"{o:.1f} of {d:.1f} ha on organic soil per soil map (~88% accurate)"
-        for o, d in zip(hits["org_area"], hits["decl_area_ha"], strict=True)
+        evidence_dict(
+            f"{o:.1f} of {d:.1f} ha on organic soil per soil map (~88% accurate)",
+            key,
+            query,
+            {"organic_area_ha": o, "declared_area_ha": d, "organic_share": s},
+        )
+        for key, o, d, s in zip(
+            hits["record_key"],
+            hits["org_area"],
+            hits["decl_area_ha"],
+            hits["organic_share_soilmap"],
+            strict=True,
+        )
     ]
     return rule_proposals(
         "R4",
@@ -211,13 +279,27 @@ def find_swapped_coordinates(registry: pd.DataFrame, parcels: pd.DataFrame) -> p
     hits = registry[registry["lat"] < registry["lon"]].join(
         centroid, on="farm_id", rsuffix="_parcels"
     )
-    evidence = [
-        f"lat {a} < lon {b}; parcel centroid at ({c:.3f}, {d:.3f})"
-        for a, b, c, d in zip(
-            hits["lat"], hits["lon"], hits["lat_parcels"], hits["lon_parcels"], strict=True
-        )
-    ]
     keys = "farm:" + hits["farm_id"]
+    query = {"rule": "R5", "compare": "farm_registry lat < lon"}
+
+    def evidence() -> list[dict[str, Any]]:
+        return [
+            evidence_dict(
+                f"lat {a} < lon {b}; parcel centroid at ({c:.3f}, {d:.3f})",
+                key,
+                query,
+                {"lat": a, "lon": b, "parcel_lat": c, "parcel_lon": d},
+            )
+            for key, a, b, c, d in zip(
+                keys,
+                hits["lat"],
+                hits["lon"],
+                hits["lat_parcels"],
+                hits["lon_parcels"],
+                strict=True,
+            )
+        ]
+
     return pd.concat(
         [
             rule_proposals(
@@ -228,7 +310,7 @@ def find_swapped_coordinates(registry: pd.DataFrame, parcels: pd.DataFrame) -> p
                 "lat",
                 hits["lat"],
                 hits["lon"],
-                evidence,
+                evidence(),
                 "fix",
             ),
             rule_proposals(
@@ -239,7 +321,7 @@ def find_swapped_coordinates(registry: pd.DataFrame, parcels: pd.DataFrame) -> p
                 "lon",
                 hits["lon"],
                 hits["lat"],
-                evidence,
+                evidence(),
                 "fix",
             ),
         ]
@@ -337,56 +419,6 @@ def rule_descriptions(params: Params) -> dict[str, str]:
     }
 
 
-def approval_comment(
-    backtest: Mapping[str, Any], policy: Mapping[str, Any], dev_years: str
-) -> str | None:
-    """Why the rule policy approves this rule's fixes, or None when it does not."""
-    rule_id = backtest["rule_id"]
-    if rule_id in policy["deterministic_rules"]:
-        return (
-            f"Approved by rule policy. Rule {rule_id} is listed as deterministic: each record it "
-            "finds has only one possible fix."
-        )
-    precision = backtest.get("precision")
-    value_match = backtest.get("fixed_value_matches_truth")
-    if precision is None or value_match is None:
-        return None
-    if precision < policy["min_precision"] or value_match < policy["min_value_match"]:
-        return None
-    tp = backtest["tp"]
-    return (
-        f"Approved by rule policy. On the {dev_years} answer key, {tp} of "
-        f"{backtest['dev_flagged']} flagged records were real errors, and "
-        f"{round(value_match * tp)} of {tp} fixed values matched the true value."
-    )
-
-
-def policy_decisions(
-    proposals: pd.DataFrame,
-    backtests: list[dict[str, Any]],
-    policy: Mapping[str, Any],
-    dev_years: str,
-) -> pd.DataFrame:
-    rows: list[dict[str, str]] = []
-    for backtest in backtests:
-        comment = approval_comment(backtest, policy, dev_years)
-        if comment is None:
-            continue
-        fixes = proposals[
-            proposals["rule_id"].eq(backtest["rule_id"]) & proposals["action"].eq("fix")
-        ]
-        for key in fixes["proposal_key"]:
-            rows.append(
-                {
-                    "proposal_key": str(key),
-                    "decision": "approve",
-                    "reviewer": "Rule policy",
-                    "comment": comment,
-                }
-            )
-    return pd.DataFrame(rows, columns=DECISION_COLUMNS)
-
-
 def rules_table(backtests: list[dict[str, Any]], descriptions: Mapping[str, str]) -> pd.DataFrame:
     rows = [
         {
@@ -411,8 +443,7 @@ def rules_table(backtests: list[dict[str, Any]], descriptions: Mapping[str, str]
     kind="propose",
     summary=(
         "Checks the Finnish farm survey and the farm registry with rules R1 to R5, proposes fixes "
-        "or flags, scores each rule on the 2023-24 answer key and approves fixes from rules "
-        "that pass."
+        "or flags, and scores each rule on the 2023-24 answer key. A person decides every fix."
     ),
 )
 def check_farm_data(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> StepResult:
@@ -472,19 +503,9 @@ def check_farm_data(ctx: RunContext, inputs: dict[str, Artifact], params: Params
         backtests = backtest_rules(proposals, survey, labels, params["backtest_value_tolerance"])
         validation = pd.DataFrame(backtests, columns=VALIDATION_COLUMNS)
 
-    with section(
-        "approve by policy",
-        "Approves the fixes of rules that meet the auto-approve policy on the answer key, and "
-        "of rules listed there as deterministic.",
-    ):
-        years = sorted(labels.loc[labels["table"].eq("farm_survey"), "year"].unique().tolist())
-        decisions = policy_decisions(
-            proposals, backtests, params["auto_approve"], " and ".join(str(y) for y in years)
-        )
-
     return StepResult(
         tables=[Artifact(name="rule_validation", layer="result", frame=validation)],
         proposals=proposals,
-        decisions=decisions,
+        decisions=None,
         rules=rules_table(backtests, rule_descriptions(params)),
     )

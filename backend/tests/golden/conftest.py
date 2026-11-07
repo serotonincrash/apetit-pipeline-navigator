@@ -77,9 +77,9 @@ def _as_text(value: Any) -> Any:
 
 
 def proposals_input(check: StepResult) -> pd.DataFrame:
-    """The `proposals` input the runner builds after check_farm_data when no person has decided
-    yet: fixes the rule policy approved are approved, flags stay flags, the rest are open."""
-    assert check.proposals is not None and check.decisions is not None
+    """The `proposals` input the runner builds after a reviewer has approved the fixes of rules
+    R1, R2, R3 and R5: those fixes are approved, flags stay flags, the rest are open."""
+    assert check.proposals is not None
     proposals = check.proposals
     columns = [
         "proposal_key",
@@ -93,7 +93,7 @@ def proposals_input(check: StepResult) -> pd.DataFrame:
         "action",
     ]
     frame = pd.DataFrame({c: [_as_text(v) for v in proposals[c]] for c in columns})
-    approved = proposals["proposal_key"].isin(check.decisions["proposal_key"])
+    approved = proposals["rule_id"].isin(["R1", "R2", "R3", "R5"])
     frame["status"] = np.where(
         proposals["action"].eq("flag"), "flag", np.where(approved, "approved", "open")
     )

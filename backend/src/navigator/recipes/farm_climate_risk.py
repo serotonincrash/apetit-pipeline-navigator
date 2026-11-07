@@ -49,11 +49,6 @@ RECIPE = Recipe(
                 # How close a fixed value must be to the answer key's true value to count as a
                 # match in the backtest.
                 "backtest_value_tolerance": {"relative": 0.01, "absolute": 0.11},
-                "auto_approve": {
-                    "min_precision": 1.0,
-                    "min_value_match": 1.0,
-                    "deterministic_rules": ["R5"],
-                },
             },
         ),
         StepSpec(
