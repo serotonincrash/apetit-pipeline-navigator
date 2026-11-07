@@ -5,17 +5,21 @@ import { useRecipe } from "@/api/recipe";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
 import { messageOf } from "@/lib/errors";
+import { fixProposerFeedsResults } from "@/lib/recipes";
 
 /** Shown once decisions are in that the latest run has not used. */
 export function RunAgainBar({ decisions, runId }: { decisions: number; runId: string }) {
   const navigate = useNavigate();
   const recipe = useRecipe();
   const run = useGetRun(runId);
-  // The next run keeps the option, so proposals the assistant suggested stay in the queue.
+  const recipeId = run.data?.recipe_id ?? recipe;
   const stepParams = run.data?.params.step_params as
     | { propose_fixes?: { enabled?: boolean } }
     | undefined;
-  const fixProposer = stepParams?.propose_fixes?.enabled === true;
+  // The fix proposer takes minutes. Where its fixes reach no result, the rerun skips it and
+  // only applies decisions; the decisions on its proposals stay recorded.
+  const fixProposer =
+    stepParams?.propose_fixes?.enabled === true && fixProposerFeedsResults(recipeId);
   const start = useCreateRun({
     mutation: {
       onSuccess: (run) => void navigate({ to: "/runs/$runId", params: { runId: run.run_id } }),
@@ -33,7 +37,7 @@ export function RunAgainBar({ decisions, runId }: { decisions: number; runId: st
         onClick={() => {
           if (requireName()) {
             start.mutate({
-              data: { recipe_id: run.data?.recipe_id ?? recipe, run_fix_proposer: fixProposer },
+              data: { recipe_id: recipeId, run_fix_proposer: fixProposer },
             });
           }
         }}

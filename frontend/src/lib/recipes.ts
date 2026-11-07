@@ -17,6 +17,18 @@ const CHECKED_DATA: Record<RecipeId, string> = {
   energy_meter_check: "meter readings",
 };
 
+/**
+ * Whether the fix proposer's fixes reach the recipe's results. A run applies only the fixes it
+ * proposed itself, so such a recipe's rerun must ask the fix proposer again.
+ */
+const FIXES_FEED_RESULTS: Record<RecipeId, boolean> = {
+  farm_climate_risk: false,
+  energy_meter_check: true,
+};
+
+export const fixProposerFeedsResults = (recipeId: string) =>
+  isRecipeId(recipeId) && FIXES_FEED_RESULTS[recipeId];
+
 export function isRecipeId(value: unknown): value is RecipeId {
   return RECIPE_IDS.some((id) => id === value);
 }
