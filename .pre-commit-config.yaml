@@ -25,3 +25,9 @@ repos:
         language: system
         files: ^backend/
         pass_filenames: false
+      - id: prose
+        name: prose check
+        entry: uv run --project backend python scripts/check_prose.py
+        language: system
+        files: ^(backend/src/navigator/(steps|agents)/|frontend/src/|scripts/check_prose\.py)
+        pass_filenames: false

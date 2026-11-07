@@ -140,7 +140,7 @@ def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
 
     with section(
         "ready windows",
-        "Sets the dates each crop should be ready between from its ERP deliveries and the ready "
+        "Sets when each crop should be ready from its ERP deliveries and the ready "
         "window lead time, with Swedish pea using Finnish pea deliveries.",
     ):
         erp = inputs["erp_purchase_lines"].frame
