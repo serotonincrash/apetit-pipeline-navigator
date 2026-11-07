@@ -6,6 +6,13 @@ from navigator import ids
 from navigator.db import models as m
 from navigator.db.session import session_scope
 
+EVIDENCE: dict[str, Any] = {
+    "summary": "Yield is 1000 times the farm median.",
+    "record_keys": ["farm_survey:FS02175"],
+    "query": {"rule": "R1", "compare": "yield_t_ha / median(yield_t_ha by crop, year)"},
+    "values": {"yield_t_ha": 5400.0, "median": 5.4, "ratio_to_median": 1000.0},
+}
+
 
 def add_run(status: str = "queued", recipe_id: str = "farm_climate_risk") -> str:
     run_id = ids.new_id("run")
@@ -92,7 +99,7 @@ def add_proposal(
                 old_value="5400",
                 new_value="5.4" if action == "fix" else None,
                 action=action,
-                evidence="Yield is 1000 times the farm median.",
+                evidence=EVIDENCE,
                 explanation=None,
             )
         )
