@@ -7,7 +7,13 @@ import pytest
 from pydantic import BaseModel
 
 from navigator.llm.client import CallRow, Llm
-from navigator.llm.models import FakeModel, GeminiModel, ModelError, ModelUnavailable
+from navigator.llm.models import (
+    FakeModel,
+    GeminiModel,
+    ModelError,
+    ModelUnavailable,
+    OpenCodeModel,
+)
 
 
 class Explanation(BaseModel):
@@ -170,3 +176,44 @@ def test_missing_key_switches_to_fake() -> None:
 def test_unregistered_schema_raises_a_clear_error() -> None:
     with pytest.raises(LookupError, match="Unregistered"):
         FakeModel({}).generate("p", Unregistered)
+
+
+class _Answer:
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.payload = payload
+
+    def __enter__(self) -> "_Answer":
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        return None
+
+    def read(self) -> bytes:
+        return json.dumps(self.payload).encode()
+
+
+def test_opencode_sends_the_schema_and_strips_a_code_fence(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[Any] = []
+
+    def urlopen(request: Any, timeout: float) -> _Answer:
+        sent.append(request)
+        content = "```json\n" + GOOD + "\n```"
+        return _Answer({"choices": [{"message": {"content": content}}]})
+
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+    model = OpenCodeModel("oc_sk_test", "glm-5.3", "https://example.test/v1/")
+    assert model.generate("Explain.", Explanation) == GOOD
+    request = sent[0]
+    body = json.loads(request.data)
+    assert request.full_url == "https://example.test/v1/chat/completions"
+    assert request.get_header("Authorization") == "Bearer oc_sk_test"
+    assert request.get_header("X-opencode-session")
+    assert body["model"] == "glm-5.3"
+    assert '"explanation"' in body["messages"][0]["content"]
+
+
+def test_opencode_without_a_key_switches_to_the_fake_model() -> None:
+    s = Setup(OpenCodeModel("", "glm-5.3", "https://example.test/v1"))
+    assert s.ask().ok
+    assert s.rows[0].status == "fake model"
+    assert "OPENCODE_API_KEY" in (s.rows[0].error or "")

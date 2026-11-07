@@ -78,7 +78,7 @@ Five services behind a reverse proxy: a worker runs every recipe step, the API o
 
 &#91;embedded content: backend containers · 4 services, 1 external API\]
 
-The web app talks only to the API. The API writes runs into the Postgres queue and records decisions; the worker claims runs from the same queue, writes results back, stores artifacts in SeaweedFS and calls Gemini for the agent steps. The API never runs a step itself: it reads results straight from SeaweedFS with DuckDB.
+The web app talks only to the API. The API writes runs into the Postgres queue and records decisions; the worker claims runs from the same queue, writes results back, stores artifacts in SeaweedFS and calls the LLM for the agent steps. The API never runs a step itself: it reads results straight from SeaweedFS with DuckDB.
 
 | Area | Decision |
 | --- | --- |
@@ -92,8 +92,8 @@ The web app talks only to the API. The API writes runs into the Postgres queue a
 | Recipes | Pure Python. The notebook logic is refactored into step functions. A `@step` decorator and named `section` blocks inside steps carry plain-language annotations, which the app shows next to each run. |
 | Reusing work | Full runs rerun every step. Step 10 prices every approved action inside the run, on copies of the projection inputs, so no run reuses another's tables. What-if runs, which rerun one action step by step from an approved run, come after the hackathon. |
 | Live progress | REST for everything, plus a server-sent event stream per run for step and section progress. |
-| LLM | Gemini through an AI Studio API key, using Google's `google-genai` SDK behind a thin internal wrapper: prompt in, validated JSON out, every call logged. The runner passes the wrapper to steps as ctx.llm, so steps that call an agent stay testable. LLM\_MODE selects gemini or fake; tests always use fake. |
-| Data sent to the LLM | During the hackathon only the synthetic challenge package goes to Gemini. Real Apetit data waits for Apetit's written answer on LLM use; the wrapper lets them switch provider. |
+| LLM | OpenCode Go through its OpenAI-style chat endpoint, called with the standard library behind a thin internal wrapper: prompt in, validated JSON out, every call logged. Go states no JSON mode, so the schema goes in the prompt and validation with retries catches misses. Gemini through `google-genai` stays as a second option. The runner passes the wrapper to steps as ctx.llm, so steps that call an agent stay testable. LLM\_MODE selects opencode, gemini or fake; tests always use fake. |
+| Data sent to the LLM | During the hackathon only the synthetic challenge package goes to the LLM. Real Apetit data waits for Apetit's written answer on LLM use; the wrapper lets them switch provider. |
 | LLM failures | Output that fails its JSON schema, a guardrail or the prose check goes back to the model with the error, at most twice. After that the call is recorded as failed. It shows on the item it was for, for example "Explanation failed" on a proposal in Data review or a failed draft on the Report screen, and as a call.failed event on the run timeline. A failed report draft produces no draft, never a partial one. If the key fails or the quota runs out, the wrapper switches to the fake model the tests use, and the call log records the switch. |
 | Sign-in | None for the hackathon. A persona switcher picks the role and the name recorded on decisions. |
 | Code and tools | A new monorepo; uv for Python dependencies; golden-number tests (each step reproduces the notebooks' results) plus tests of the main API flows. |
@@ -102,7 +102,7 @@ The web app talks only to the API. The API writes runs into the Postgres queue a
 | Ids | Prefixed by record type, followed by a time-sortable unique id: run\_…, step\_…, art\_…, prop\_…, dec\_…, met\_…, act\_…, opt\_…, rs\_…, asm\_…, ins\_…, rep\_…, call\_… (the full list is in ids.py) |
 | Seeding data | A one-off seed job at startup uploads the unzipped challenge package to SeaweedFS and records each file with its checksum. Runs read from SeaweedFS only. The seed job also loads the action catalogue and records a Catalogue policy approval for each catalogue action. |
 | Demo hosting | The same Compose stack on a Vultr VM, with Caddy providing HTTPS automatically and one URL for web and API. |
-| Demo access | One shared username and password at the Caddy proxy, so the public URL can't be used to start runs on the team's Gemini key. |
+| Demo access | One shared username and password at the Caddy proxy, so the public URL can't be used to start runs on the team's LLM key. |
 | Production LLM | Apetit's choice. Any provider plugs in behind the wrapper if it offers structured JSON output, per-call logging and data-handling terms Apetit accepts. |
 
 ## Repo layout
@@ -124,7 +124,7 @@ climate-nature-navigator/
 │   │   ├── steps/                step functions refactored from the notebooks
 │   │   ├── analysis/             cropweather, yieldcv, yieldmodel, climateproj, riskprice, actions
 │   │   ├── agents/               fix proposer, explainer, action proposer, report drafter, prompts
-│   │   └── llm/                  Gemini wrapper, JSON validation, call log
+│   │   └── llm/                  LLM wrapper, JSON validation, call log
 │   └── tests/
 │       ├── golden/               each step reproduces the notebooks' results
 │       └── api/                  main API flows against test Postgres and SeaweedFS
@@ -272,7 +272,9 @@ Environment variables, listed in `infra/.env.example`:
 
 | Variable | What it sets |
 | --- | --- |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | The AI Studio key and the model the agents use; LLM\_MODE is gemini or fake |
+| `LLM_MODE` | opencode, gemini or fake |
+| `OPENCODE_API_KEY`, `OPENCODE_MODEL` | The OpenCode Go key and the Go model the agents use |
+| `GEMINI_API_KEY`, `GEMINI_MODEL` | The AI Studio key and model, when LLM\_MODE is gemini |
 | `DATABASE_URL`, `POSTGRES_PASSWORD` | Postgres connection and password |
 | `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_ENDPOINT`, `S3_BUCKET` | S3 credentials, endpoint and bucket |
 | `PACKAGE_DIR` | Where the seed job finds the unzipped challenge package |
@@ -736,7 +738,7 @@ Guardrails, enforced in code rather than in the prompt:
 3. The explainer never types a number. It writes evidence tokens such as `{{ev:ratio_to_median}}`, which the app fills from the proposal's evidence values. A token that names no value fails the check.
 4. The drafter never types a number either. It writes metric and insight tokens such as `{{metric:met_01JC...}}` and `{{insight:ins_01JC...}}`, which the app fills. A draft with any other figure, apart from years and scenario names, fails the check.
 5. One call writes one paragraph or one explanation. Each call is logged in `llm_call` with the model, prompt version and input and output hashes, so every paragraph points to the call that wrote it. The published report's method section lists the models and prompt versions used. Screens label agent text "Suggested by the assistant" without naming the model.
-6. If the Gemini key fails or its quota runs out, the wrapper switches to the fake model the tests use, and the call log records the switch.
+6. If the LLM key fails or its quota runs out, the wrapper switches to the fake model the tests use, and the call log records the switch.
 
 ### Agent outputs
 

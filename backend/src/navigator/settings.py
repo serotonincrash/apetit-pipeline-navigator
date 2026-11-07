@@ -22,7 +22,10 @@ class Settings(BaseSettings):
 
     catalogue_path: str = "../config/actions/catalogue.json"
 
-    llm_mode: Literal["gemini", "fake"] = "fake"
+    llm_mode: Literal["opencode", "gemini", "fake"] = "fake"
+    opencode_api_key: str = ""
+    opencode_model: str = ""
+    opencode_base_url: str = "https://opencode.ai/inference/go/openai/v1"
     gemini_api_key: str = ""
     gemini_model: str = ""
 
