@@ -20,7 +20,7 @@ from navigator.llm import Llm, LlmResult
 from navigator.llm.models import FAKE_RESPONSES
 
 AGENT = "fix-proposer"
-PROMPT_VERSION = "fix-proposer-v1"
+PROMPT_VERSION = "fix-proposer-v2"
 MAX_WORDS = 60
 TEMPLATE = (Path(__file__).parent / "prompts" / "fix_proposer.txt").read_text()
 

@@ -19,9 +19,9 @@ Fields of each proposal:
 The evidence query is a compute query. Its fields:
 - kind is "compute" and table names the raw table.
 - join is an optional list of {table, on}. group_by is an optional list of columns.
-- compute is an object of named steps. An aggregate step is {op, column} with op median, mean, sum, count, min or max, taken within each group_by group. An arithmetic step is {op, left, right} with op add, subtract, multiply or divide. Left and right are columns, earlier step names or numbers. Steps run in the order you write them.
-- where keeps the rows that match every key. A value is one value, a list of values, or {min, max}. Use where to select exactly one record, for example by its key columns.
-- values lists the numbers you claim, by step or column name, written exactly as the query computes them. The app runs the query again. A proposal whose query does not select exactly one record, or whose values differ, is rejected.
+- compute is an object of named steps. An aggregate step is {op, column} with op median, mean, sum, count, min or max, taken within each group_by group. An arithmetic step is {op, left, right} with op add, subtract, multiply or divide. Left and right are columns, earlier step names or numbers. Steps run in the order you write them, over the whole table, before where picks any row.
+- where keeps the rows that match every key. A value is one value, a list of values, or {min, max}. Use where to select exactly one record, for example by its key columns. where only picks the result row after every step has run. It never narrows the rows a step sees, so a sum or count without group_by covers the whole table, not the record.
+- values lists the numbers you claim, by step or column name, written exactly as the query computes them. To cite the record's own value, name its column in values, such as "quantity", with no compute step for it. The app runs the query again. A proposal whose query does not select exactly one record, or whose values differ, is rejected.
 
 The explanation may cite a value with a token such as {{ev:ratio_to_median}}, which the app fills. Do not type other numbers except inside record keys. Write in the third person and the present tense. Use short words and short sentences. No em dashes, no symbols such as an arrow or a tilde, no exclamation marks. Do not name a model or say you are an assistant.
 
