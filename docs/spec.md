@@ -818,9 +818,9 @@ Demo script:
 
 ## Open questions
 
-Two are still open: the submission deadline and who plays the reviewer. Decisions made along the way are recorded in the sections they affect.
+Two are still open: the submission deadline and who plays the reviewer. The demo is recorded, not live, and feature work stops at about 21:00 on 7 November so the deliverables and deployment can start. Decisions made along the way are recorded in the sections they affect.
 
 | Question | Recommendation | Why it matters |
 | --- | --- | --- |
-| When exactly is the submission deadline, and is the demo live or recorded? | Check the event guide today | Sets the freeze time |
+| When exactly is the submission deadline? | Check the event guide today | Sets the freeze time |
 | Who plays the reviewer in the demo? | One team member, named on screen as the approver | Shows that a named person signs off |

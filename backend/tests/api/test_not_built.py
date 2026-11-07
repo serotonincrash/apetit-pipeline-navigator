@@ -8,10 +8,6 @@ from tests.api.conftest import PERSONA
 pytestmark = pytest.mark.api
 
 NOT_BUILT = [
-    ("GET", "/api/actions", None, 4),
-    ("POST", "/api/actions/act_1/decisions", {"decision": "approve"}, 4),
-    ("GET", "/api/result-sets/rs_1/action-options", None, 4),
-    ("POST", "/api/action-options/opt_1/decisions", {"decision": "recommended"}, 4),
     ("POST", "/api/result-sets/rs_1/report", None, 4),
     ("GET", "/api/result-sets/rs_1/report", None, 4),
     ("POST", "/api/result-sets/rs_1/decisions", {"status": "approved"}, 4),

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from navigator import ids
 from navigator.api import schemas
-from navigator.api.dependencies import PersonaDep, SessionDep
+from navigator.api.dependencies import PersonaDep, SessionDep, require_role
 from navigator.api.errors import BAD_PERSONA, NOT_FOUND, invalid, not_found
 from navigator.db import models as m
 from navigator.db.decisions import (
@@ -91,6 +91,7 @@ def decide_proposals(
     request: schemas.BulkProposalDecisionRequest, session: SessionDep, persona: PersonaDep
 ) -> list[schemas.Decision]:
     """Apply one decision to many proposals, such as all of one rule. Each gets its own row."""
+    require_role(persona, "data_specialist", "decide on proposed fixes")
     proposal_ids = list(dict.fromkeys(request.proposal_ids))
     found = {
         p.proposal_id: p
@@ -123,6 +124,7 @@ def decide_proposal(
     persona: PersonaDep,
 ) -> schemas.Decision:
     """Approve, edit or reject one proposal, with an optional comment."""
+    require_role(persona, "data_specialist", "decide on proposed fixes")
     proposal = _find_proposal(session, proposal_id)
     edited_value = (request.edited_value or "").strip() or None
     if request.decision == "edit":

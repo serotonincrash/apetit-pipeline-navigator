@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from navigator import ids
 from navigator.api import schemas
-from navigator.api.dependencies import PersonaDep, SessionDep
+from navigator.api.dependencies import PersonaDep, SessionDep, require_role
 from navigator.api.errors import BAD_PERSONA, NOT_FOUND, not_found
 from navigator.db import models as m
 from navigator.db.decisions import latest_decisions, rule_status, rule_target_id
@@ -33,6 +33,7 @@ def decide_rule(
     rule_id: str, request: schemas.RuleDecisionRequest, session: SessionDep, persona: PersonaDep
 ) -> schemas.Decision:
     """Approve or reject one version of a rule. Only approved rules run in recipes."""
+    require_role(persona, "data_specialist", "decide on data checks")
     query = select(m.Rule).where(m.Rule.rule_id == rule_id)
     if request.version is not None:
         query = query.where(m.Rule.version == request.version)

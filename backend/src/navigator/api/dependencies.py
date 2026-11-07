@@ -66,3 +66,12 @@ def current_persona(
 
 
 PersonaDep = Annotated[PersonaHeader, Depends(current_persona)]
+
+
+def require_role(persona: PersonaHeader, role: PersonaRole, decision: str) -> None:
+    """Each specialist decides only in their own review step. `decision` completes the sentence."""
+    if persona.role != role:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Only the {ROLE_LABELS[role].lower()} can {decision}. Switch persona to go on.",
+        )

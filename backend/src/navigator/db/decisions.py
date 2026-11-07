@@ -6,7 +6,7 @@ cleaned tables and the review screens always agree.
 """
 
 from collections.abc import Iterable
-from typing import Literal
+from typing import Literal, cast
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +15,8 @@ from navigator.db import models as m
 
 ProposalStatus = Literal["open", "approved", "rejected", "flag"]
 RuleStatus = Literal["proposed", "approved", "rejected"]
+ActionState = Literal["proposed", "approved_to_run", "rejected"]
+OptionState = Literal["recommended", "considered", "rejected"]
 TargetType = Literal["proposal", "rule", "action", "action_option", "result_set"]
 
 
@@ -74,3 +76,17 @@ def rule_status(author: str, decision: m.Decision | None) -> RuleStatus:
     if decision is not None:
         return "rejected" if decision.decision == "reject" else "approved"
     return "proposed" if author.startswith("agent") else "approved"
+
+
+def action_status(decision: m.Decision | None) -> ActionState:
+    """An action waits for a person until decided; the latest decision then says run or not."""
+    if decision is None:
+        return "proposed"
+    return "approved_to_run" if decision.decision == "approve" else "rejected"
+
+
+def option_status(decision: m.Decision | None) -> OptionState | None:
+    """A priced option has no status until a reviewer marks it."""
+    if decision is None:
+        return None
+    return cast("OptionState", decision.decision)
