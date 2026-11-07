@@ -7,6 +7,7 @@ import { ArtifactRowsTable } from "@/components/ArtifactRowsTable";
 import { StatusLabel, statusColour } from "@/components/StatusLabel";
 import { Button } from "@/components/ui/button";
 import type { LiveSection } from "@/features/runs/useRunEvents";
+import { runErrorText } from "@/lib/errors";
 import { count, duration } from "@/lib/format";
 import { sentenceCase, stepLabel, tableLabel } from "@/lib/labels";
 import { cn } from "@/lib/utils";
@@ -88,7 +89,7 @@ export function StepItem({ runId, step, tables, sections }: StepItemProps) {
 
       {step.status === "failed" && step.error ? (
         <div className="mt-2 max-w-column border-l-2 border-danger pl-3" role="alert">
-          <p className="text-danger">{step.error}</p>
+          <p className="text-danger">{runErrorText(step.error)}</p>
           <FixesWaiting runId={runId} message={step.error} />
         </div>
       ) : null}

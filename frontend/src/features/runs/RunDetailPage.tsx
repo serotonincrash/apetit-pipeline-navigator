@@ -3,8 +3,10 @@ import { useGetRun } from "@/api/generated/client";
 import { ErrorState } from "@/components/ErrorState";
 import { StatusLabel } from "@/components/StatusLabel";
 import { TableSkeleton } from "@/components/TableSkeleton";
+import { ReportRunSummary } from "@/features/runs/ReportRunSummary";
 import { StepItem } from "@/features/runs/StepItem";
 import { useRunEvents } from "@/features/runs/useRunEvents";
+import { runErrorText } from "@/lib/errors";
 import { dateAndTime, relativeTime } from "@/lib/format";
 import { recipeLabel } from "@/lib/recipes";
 
@@ -45,11 +47,16 @@ export function RunDetailPage({ runId }: { runId: string }) {
             {run.data.status === "failed" &&
             run.data.error &&
             !run.data.steps.some((s) => s.error) ? (
-              <p className="mt-2 text-danger" role="alert">
-                {run.data.error}
-              </p>
+              <div className="mt-2">
+                <ErrorState
+                  title="The run failed."
+                  message={runErrorText(run.data.error)}
+                  runId={run.data.run_id}
+                />
+              </div>
             ) : null}
           </div>
+          {run.data.kind === "report" ? <ReportRunSummary run={run.data} /> : null}
           <ol>
             {[...run.data.steps]
               .sort((a, b) => a.position - b.position)
