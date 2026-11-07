@@ -8,3 +8,4 @@ dist/
 .DS_Store
 .worktrees/
 APETIT_CLIMATE_NATURE_NAVIGATOR_2026/
+.claude/
