@@ -1,0 +1,14 @@
+# Keep host installs and local secrets out of the image builds (context is the repo root).
+**/node_modules
+**/.venv
+**/.env
+**/dist
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/.DS_Store
+.git
+.worktrees
+.claude
+notebooks
+APETIT_CLIMATE_NATURE_NAVIGATOR_2026

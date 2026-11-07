@@ -7,8 +7,10 @@
 			flush_interval -1
 		}
 	}
-	# The web service joins in milestone 4; until then only the API is served.
+	# The web app routes in the browser, so unknown paths get index.html.
 	handle {
-		respond "The app is not deployed yet." 503
+		root * /srv
+		try_files {path} /index.html
+		file_server
 	}
 }

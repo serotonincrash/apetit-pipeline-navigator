@@ -11,6 +11,9 @@ x-backend: &backend
   environment:
     DATABASE_URL: postgresql+psycopg://navigator:${POSTGRES_PASSWORD}@postgres:5432/navigator
     S3_ENDPOINT: seaweedfs:8333
+    PACKAGE_DIR: /package
+  # The API needs the package too: scripts/reset_demo.sh reseeds from inside it.
+  volumes: ["${PACKAGE_DIR}:/package:ro"]
   depends_on:
     postgres:
       condition: service_healthy
@@ -58,11 +61,6 @@ services:
     <<: *backend
     profiles: [app]
     command: sh -c "alembic upgrade head && python -m navigator.seed"
-    environment:
-      DATABASE_URL: postgresql+psycopg://navigator:${POSTGRES_PASSWORD}@postgres:5432/navigator
-      S3_ENDPOINT: seaweedfs:8333
-      PACKAGE_DIR: /package
-    volumes: ["${PACKAGE_DIR}:/package:ro"]
     restart: "no"
 
   api:
@@ -82,7 +80,9 @@ services:
         condition: service_completed_successfully
 
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: ..
+      dockerfile: infra/caddy.Dockerfile
     profiles: [app]
     environment:
       DOMAIN: ${DOMAIN}
@@ -90,7 +90,6 @@ services:
       BASIC_AUTH_HASH: ${BASIC_AUTH_HASH}
     ports: ["80:80", "443:443"]
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy:/data
     depends_on: [api]
 
