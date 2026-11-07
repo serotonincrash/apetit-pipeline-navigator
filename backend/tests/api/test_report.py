@@ -1,5 +1,7 @@
 """The report path: request a draft, run it on the worker, review, publish and export."""
 
+import re
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -189,13 +191,12 @@ def test_a_failed_paragraph_gives_no_draft(
     assert client.get(f"/api/result-sets/{result_set_id}/report").status_code == 404
     with session_scope() as session:
         failed = session.scalars(select(m.RunEvent).where(m.RunEvent.type == "call.failed")).all()
-        assert [(e.payload["agent"], e.payload["item"]) for e in failed] == [
-            ("report-drafter", "Summary")
-        ]
-        statuses = [
-            c.status for c in session.scalars(select(m.LlmCall).order_by(m.LlmCall.attempt))
-        ]
-        assert statuses == ["retried", "retried", "failed"]
+        # Paragraphs are written side by side, so any of them may be the one reported.
+        assert failed
+        assert {e.payload["agent"] for e in failed} == {"report-drafter"}
+        calls = session.scalars(select(m.LlmCall)).all()
+        assert {c.status for c in calls} == {"retried", "failed"}
+        assert len([c for c in calls if c.status == "failed"]) == len(failed)
 
 
 def test_results_move_one_step_at_a_time_and_publishing_needs_a_draft(client: TestClient) -> None:
@@ -277,3 +278,65 @@ def test_publishing_supersedes_the_earlier_result_set_of_the_same_recipe_only(
     assert status == {first: "superseded", other_recipe: "published", second: "published"}
     # The superseded result set keeps its report readable.
     assert client.get(f"/api/result-sets/{first}/report").json()["status"] == "superseded"
+
+
+def energy_results() -> tuple[str, str]:
+    """A recipe 2 result set: yearly totals, one site, a difference and an approved meter fix."""
+    run_id = add_run("succeeded", "energy_meter_check")
+    result_set_id = add_result_set(run_id)
+    for name, unit, value in [
+        ("electricity_use_mwh", "MWh", 4200.0),
+        ("location_based_tco2e", "t CO2e", 1438.1),
+        ("market_based_tco2e", "t CO2e", 60.8),
+    ]:
+        for site in (None, "S-SAK"):
+            add_metric(
+                result_set_id,
+                f"scope2_electricity.{name}",
+                unit=unit,
+                value=value,
+                site=site,
+                period="2023",
+            )
+    add_metric(
+        result_set_id,
+        "compare_inventory.location_based_difference_tco2e",
+        unit="t CO2e",
+        value=-0.3,
+        period="2023",
+    )
+    add_assumption(run_id, "scope2_electricity", "scope2_electricity.location_t_per_mwh", 0.038)
+    add_decision(add_proposal(run_id, "M1", "energy:S-SAK:2023-05:electricity"))
+    return run_id, result_set_id
+
+
+def test_recipe_2_gets_a_three_section_draft_that_cites_its_own_metrics(
+    client: TestClient,
+) -> None:
+    _, result_set_id = energy_results()
+    draft(client, result_set_id)
+    report = client.get(f"/api/result-sets/{result_set_id}/report").json()
+    drafted = [p for p in report["paragraphs"] if p["call_id"]]
+    assert [p["heading"] for p in drafted if p["heading"]] == [
+        "Summary",
+        "Scope 2 by site and year",
+        "Method and limits",
+    ]
+    assert [p["section"] for p in drafted] == ["summary", "scope2", "scope2", "method"]
+    assert all("{{insight:" not in p["text"] for p in drafted)
+    cited = {name["name"] for name in report["metrics"].values()}
+    assert "scope2_electricity.location_based_tco2e" in cited
+    assert "compare_inventory.location_based_difference_tco2e" in cited
+    assert {m["site"] for m in report["metrics"].values()} >= {None}
+    built = [p for p in report["paragraphs"] if not p["call_id"]]
+    assert "Data check M1: 1 fixes approved by A. Reviewer" in built[1]["text"]
+    assert "Label of scope2_electricity.location_t_per_mwh" in built[2]["text"]
+
+    for target in ("in_review", "approved", "published"):
+        move(client, result_set_id, target)
+    body = client.get(f"/api/result-sets/{result_set_id}/report/export").text
+    assert body.startswith("# Scope 2 electricity report")
+    assert "{{" not in body
+    # Recipe 2 keeps whole tonnes, such as "1,438 t CO2e", not two significant figures.
+    assert re.search(r"\d,\d{3} t CO2e", body)
+    assert "k t CO2e" not in body

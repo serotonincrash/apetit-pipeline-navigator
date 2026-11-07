@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = ""
 
+    report_concurrency: int = 8
     worker_poll_seconds: float = 2.0
     log_level: str = "INFO"
 

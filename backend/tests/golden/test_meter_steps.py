@@ -266,18 +266,45 @@ def metric_steps(approved: dict[str, Artifact]) -> list[StepResult]:
     return [run_step(ctx, name, approved) for name in ("scope2_electricity", "compare_inventory")]
 
 
+def expected_metric_count(approved: dict[str, Artifact]) -> int:
+    """Three measures for each site and year and for each year's total, and four differences."""
+    sites = approved["scope2_site_year"].frame
+    return 3 * (len(sites) + sites["year"].nunique()) + 4
+
+
 def test_site_metrics_carry_their_site_and_trace_to_tables(
     approved: dict[str, Artifact], metric_steps: list[StepResult]
 ) -> None:
     frames = [r.metrics for r in metric_steps if r.metrics is not None]
     metrics = pd.concat(frames, ignore_index=True)
-    assert len(metrics) == 3 * len(approved["scope2_site_year"].frame) + 4
+    assert len(metrics) == expected_metric_count(approved)
     for frame in frames:
         assert list(frame.columns) == METRIC_COLUMNS
     per_site = metrics[metrics["name"].str.startswith("scope2_electricity.")]
-    assert set(per_site["site"]) == {"S-BJU", "S-HQ", "S-KAN", "S-PUD", "S-SAK"}
+    assert set(per_site["site"].dropna()) == {"S-BJU", "S-HQ", "S-KAN", "S-PUD", "S-SAK"}
     for lineage in metrics["lineage"]:
         assert {entry["table"] for entry in lineage} <= set(approved)
+
+
+def test_year_totals_equal_the_sum_of_the_site_rows(
+    approved: dict[str, Artifact], metric_steps: list[StepResult]
+) -> None:
+    metrics = metric_steps[0].metrics
+    assert metrics is not None
+    sites = approved["scope2_site_year"].frame
+    for name, column in [
+        ("scope2_electricity.electricity_use_mwh", "electricity_mwh"),
+        ("scope2_electricity.location_based_tco2e", "location_based_tco2e"),
+        ("scope2_electricity.market_based_tco2e", "market_based_tco2e"),
+    ]:
+        own = metrics[metrics["name"].eq(name)]
+        totals = own[own["site"].isna()].set_index("period")
+        assert sorted(totals.index) == [str(y) for y in sorted(sites["year"].unique())]
+        for year, total in sites.groupby("year")[column].sum().to_dict().items():
+            assert totals.at[str(year), "value"] == pytest.approx(total)
+            lineage: list[dict[str, Any]] = list(totals["lineage"].loc[str(year)])
+            assert {"table": "scope2_site_year", "filter": {"year": year}} in lineage
+            assert all("site_id" not in entry["filter"] for entry in lineage)
 
 
 def test_metrics_reach_the_runner(
@@ -290,7 +317,7 @@ def test_metrics_reach_the_runner(
         {name: f"art_{name}" for name in approved},
         {name: f"asm_{name}" for name in names},
     )
-    assert len(rows) == 3 * len(approved["scope2_site_year"].frame) + 4
+    assert len(rows) == expected_metric_count(approved)
     assert {r.site for r in rows if r.name.startswith("scope2_")} >= {"S-SAK", "S-KAN"}
 
 

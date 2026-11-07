@@ -19,6 +19,7 @@ from navigator.db.decisions import latest_decisions, option_status
 from navigator.db.session import session_scope
 from navigator.llm import get_llm
 from navigator.logs import get_logger
+from navigator.settings import get_settings
 from navigator.storage.query import read_all_rows
 from navigator.worker.runner import emit, failure_message
 
@@ -52,7 +53,9 @@ def _draft_report(run_id: str) -> None:
     def call_failed(agent: str, item: str, reason: str) -> None:
         emit(run_id, "call.failed", {"step": None, "agent": agent, "item": item, "reason": reason})
 
-    paragraphs = drafter.draft_report(get_llm(run_id, on_failure=call_failed), evidence)
+    paragraphs = drafter.draft_report(
+        get_llm(run_id, on_failure=call_failed), evidence, get_settings().report_concurrency
+    )
 
     with session_scope() as session:
         rows: list[dict[str, Any]] = [
@@ -98,6 +101,7 @@ def gather_evidence(session: Session, result_set_id: str) -> drafter.ReportEvide
             ngfs_scenario=x.ngfs_scenario,
             period=x.period,
             action=action_names.get(x.action_id or ""),
+            site=x.site,
         )
         for x in session.scalars(
             select(m.Metric)
@@ -131,8 +135,14 @@ def gather_evidence(session: Session, result_set_id: str) -> drafter.ReportEvide
             .order_by(m.Assumption.step, m.Assumption.name)
         )
     ]
+    recipe_id = session.get_one(m.Run, result_set.run_id).recipe_id
     return drafter.ReportEvidence(
-        metrics, insights, options, loss_drivers(session, result_set.run_id), assumptions
+        metrics,
+        insights,
+        options,
+        loss_drivers(session, result_set.run_id),
+        assumptions,
+        recipe_id,
     )
 
 

@@ -122,7 +122,7 @@ def test_the_recipe_runs_and_approved_fixes_bring_scope2_to_the_answer(
         assert session.get_one(m.Run, first).status == "succeeded"
         rules = session.scalars(select(m.Proposal.rule_id).where(m.Proposal.run_id == first)).all()
         assert sorted(set(rules)) == ["AG1", "M1", "M2", "M3"]
-        assert session.scalar(select(func.count()).select_from(m.Metric)) == 91
+        assert session.scalar(select(func.count()).select_from(m.Metric)) == 112
 
     # No approvals yet, so the readings are as delivered and the figures are far off.
     before = comparison(client, first)

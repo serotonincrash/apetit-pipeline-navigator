@@ -7,17 +7,19 @@ paragraph that fails its checks, so a draft is never partial.
 
 import json
 import re
+import threading
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from navigator.agents.schemas import ParagraphDraft
-from navigator.llm import Llm
+from navigator.llm import Llm, LlmResult
 from navigator.llm.models import FAKE_RESPONSES
 
 AGENT = "report-drafter"
-PROMPT_VERSION = "report-drafter-v1"
+PROMPT_VERSION = "report-drafter-v2"
 MAX_WORDS = 120
 INPUT_MARKER = "\nINPUT_JSON:\n"
 RULES = (Path(__file__).parent / "prompts" / "report_drafter.txt").read_text()
@@ -57,6 +59,15 @@ METRIC_LABELS = {
     "compare_actions.risk_removed_eur": "Risk removed",
     "compare_actions.import_tco2e_removed": "Import emissions removed",
     "compare_actions.break_even_cost_eur": "Break-even cost",
+    "scope2_electricity.electricity_use_mwh": "Electricity use",
+    "scope2_electricity.location_based_tco2e": "Location-based Scope 2",
+    "scope2_electricity.market_based_tco2e": "Market-based Scope 2",
+    "compare_inventory.location_based_difference_tco2e": (
+        "Location-based Scope 2 minus the answer inventory"
+    ),
+    "compare_inventory.market_based_difference_tco2e": (
+        "Market-based Scope 2 minus the answer inventory"
+    ),
 }
 
 
@@ -74,6 +85,7 @@ class MetricFact:
     ngfs_scenario: str | None
     period: str | None
     action: str | None  # the action's name, for the action metrics
+    site: str | None = None  # the site's id, for the Scope 2 metrics; None for a total
 
 
 @dataclass(frozen=True)
@@ -112,6 +124,7 @@ class ReportEvidence:
     options: list[OptionFact]
     drivers: list[DriverFact]
     assumptions: list[AssumptionFact]
+    recipe_id: str = "farm_climate_risk"
 
 
 @dataclass(frozen=True)
@@ -212,6 +225,71 @@ PLANS = (
 )
 
 
+# Recipe 2 has no insights, loss drivers or options, so its outline is three sections. The
+# summary sees the yearly totals and the differences from the answer inventories first.
+ENERGY_PLANS = (
+    ParagraphPlan(
+        "summary",
+        "Summary",
+        "State the Scope 2 emissions from purchased electricity per year, location-based and "
+        "market-based, and how far they sit from the 2023 and 2024 answer inventories.",
+        "This report gives the Scope 2 emissions from purchased electricity at Apetit's sites, "
+        "location-based and market-based, and compares them with the answer inventories.",
+        (
+            "compare_inventory.location_based_difference_tco2e",
+            "compare_inventory.market_based_difference_tco2e",
+            "scope2_electricity.location_based_tco2e",
+            "scope2_electricity.market_based_tco2e",
+        ),
+        16,
+    ),
+    ParagraphPlan(
+        "scope2",
+        "Scope 2 by site and year",
+        "Give the electricity use and the location-based Scope 2 of each site and year, after "
+        "the total for the year.",
+        "The figures below give the electricity use and the location-based Scope 2 of each site.",
+        (
+            "scope2_electricity.electricity_use_mwh",
+            "scope2_electricity.location_based_tco2e",
+        ),
+        40,
+    ),
+    ParagraphPlan(
+        "scope2",
+        "Scope 2 by site and year",
+        "Give the market-based Scope 2 of each site and year, and the difference between the "
+        "totals and the 2023 and 2024 answer inventories.",
+        "The figures below give the market-based Scope 2 of each site and how the totals "
+        "compare with the answer inventories.",
+        (
+            "scope2_electricity.market_based_tco2e",
+            "compare_inventory.location_based_difference_tco2e",
+            "compare_inventory.market_based_difference_tco2e",
+        ),
+        40,
+    ),
+    ParagraphPlan(
+        "method",
+        "Method and limits",
+        "Open the method section: say that the figures rest on the cleaned readings with the "
+        "approved corrections, the grid factors and the residual mix, and that guarantees of "
+        "origin count only for their own year. Name where the figures are uncertain. The lists "
+        "of files, corrections, assumptions and models follow in code.",
+        "Every number in this report opens its sources. The lists below name the files, "
+        "corrections, assumptions and models behind the figures.",
+        (),
+        0,
+        ("assumptions",),
+    ),
+)
+OUTLINES = {"energy_meter_check": ENERGY_PLANS}
+
+
+def outline(recipe_id: str) -> tuple[ParagraphPlan, ...]:
+    return OUTLINES.get(recipe_id, PLANS)
+
+
 @dataclass(frozen=True)
 class Paragraph:
     section: str
@@ -224,15 +302,24 @@ class DraftFailed(ValueError):
     """A paragraph failed its checks after the retries. The message is for the run's error."""
 
 
-def draft_report(llm: Llm, evidence: ReportEvidence) -> list[Paragraph]:
-    """Write the drafted paragraphs in outline order. Raises DraftFailed at the first failure."""
+def draft_report(llm: Llm, evidence: ReportEvidence, concurrency: int = 8) -> list[Paragraph]:
+    """Write the drafted paragraphs in outline order, a few calls at a time.
+
+    Each paragraph has its own checks and retries. Raises DraftFailed for the first paragraph in
+    outline order that fails, and starts no new calls once one has failed.
+    """
     metric_ids = {m.metric_id for m in evidence.metrics}
     insight_ids = {i.insight_id for i in evidence.insights}
     recommended = any(o.status == "recommended" for o in evidence.options)
     action_names = {m.action for m in evidence.metrics if m.action}
     action_names |= {o.name for o in evidence.options}
-    paragraphs: list[Paragraph] = []
-    for position, plan in enumerate(PLANS):
+    plans = outline(evidence.recipe_id)
+    failed = threading.Event()
+
+    def write(position: int) -> LlmResult[ParagraphDraft] | None:
+        if failed.is_set():
+            return None
+        plan = plans[position]
         result = llm.call(
             AGENT,
             PROMPT_VERSION,
@@ -244,6 +331,14 @@ def draft_report(llm: Llm, evidence: ReportEvidence) -> list[Paragraph]:
             check=guardrails(plan.section, metric_ids, insight_ids, recommended, action_names),
         )
         if result.value is None:
+            failed.set()
+        return result
+
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        results = list(pool.map(write, range(len(plans))))
+    paragraphs: list[Paragraph] = []
+    for plan, result in zip(plans, results, strict=True):
+        if result is None or result.value is None:
             raise DraftFailed(
                 f"The report draft failed: the assistant could not write the paragraph for "
                 f"{plan.heading!r} so that it passes the checks. Nothing was saved. "
@@ -259,22 +354,26 @@ def draft_report(llm: Llm, evidence: ReportEvidence) -> list[Paragraph]:
 
 
 def build_prompt(position: int, evidence: ReportEvidence) -> str:
-    plan = PLANS[position]
+    plan = outline(evidence.recipe_id)[position]
     names = set(plan.metric_names)
     metrics = sorted(
         (m for m in evidence.metrics if m.name in names),
         key=lambda m: (
             m.region is not None,
             m.crop is not None,
+            m.site is not None,
             m.name,
             m.region or "",
             m.crop or "",
             SCENARIO_ORDER.get(m.scenario or "", len(SCENARIO_ORDER)),
             m.ngfs_scenario or "",
+            m.site or "",
+            m.period or "",
             m.metric_id,
         ),
     )[: plan.metric_limit]
     facts: dict[str, Any] = {
+        "recipe": evidence.recipe_id,
         "plan": position,
         "section": plan.section,
         "brief": plan.brief,
@@ -302,10 +401,12 @@ def applies_to(
     scenario: str | None,
     ngfs: str | None,
     period: str | None,
+    site: str | None = None,
 ) -> str:
     """The dimensions of a number in the words the app uses."""
     parts = [
         crop.replace("_", " ").capitalize() if crop else None,
+        site,
         REGION_LABELS.get(region or "", region),
         SCENARIO_LABELS.get(scenario or "", scenario),
         NGFS_LABELS.get(ngfs or "", ngfs),
@@ -325,7 +426,12 @@ def metric_json(metric: MetricFact) -> dict[str, Any]:
         "high": metric.high,
         "unit": metric.unit,
         "applies_to": applies_to(
-            metric.crop, metric.region, metric.scenario, metric.ngfs_scenario, metric.period
+            metric.crop,
+            metric.region,
+            metric.scenario,
+            metric.ngfs_scenario,
+            metric.period,
+            metric.site,
         ),
         "action": metric.action,
     }
@@ -342,6 +448,7 @@ _SCENARIO_CODE = re.compile(r"SSP\d-\d\.\d")
 _ALLOWED_PHRASES = [
     "1-in-10",
     "CO2e",
+    "Scope 2",
     *SCENARIO_LABELS.values(),
     *NGFS_LABELS.values(),
 ]
@@ -410,7 +517,7 @@ def _fake_sentence(metric: dict[str, Any]) -> str:
 def fake_paragraph(prompt: str) -> dict[str, Any]:
     start = prompt.rindex(INPUT_MARKER) + len(INPUT_MARKER)
     facts: dict[str, Any] = json.JSONDecoder().raw_decode(prompt[start:])[0]
-    plan = PLANS[int(facts["plan"])]
+    plan = outline(facts["recipe"])[int(facts["plan"])]
     sentences: list[str] = [plan.fake_text]
     first_of_each_name: dict[str, dict[str, Any]] = {}
     # The highest climate scenario first, so an action reads as what it removes in the future.

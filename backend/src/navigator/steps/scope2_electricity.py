@@ -120,16 +120,29 @@ def site_years(
     return table[SITE_YEAR_COLUMNS]
 
 
+def year_totals(table: pd.DataFrame) -> pd.DataFrame:
+    """The sum over all sites for each year, in the columns the metrics read."""
+    sums = table.groupby("year")[
+        ["goo_listed_mwh", "electricity_mwh", "location_based_tco2e", "market_based_tco2e"]
+    ].sum()
+    return sums.reset_index().assign(site_id=None)
+
+
 def metric_rows(table: pd.DataFrame) -> list[dict[str, Any]]:
+    """One row per measure for each site and year, then one per measure for each year's total."""
     rows: list[dict[str, Any]] = []
-    for record in table.to_dict("records"):
-        site, year = str(record["site_id"]), int(record["year"])
-        own = {"site_id": site, "year": year}
+    totals = year_totals(table)
+    for record in [*table.to_dict("records"), *totals.to_dict("records")]:
+        site = None if pd.isna(record["site_id"]) else str(record["site_id"])
+        year = int(record["year"])
+        own = {"year": year} if site is None else {"site_id": site, "year": year}
         energy = {"table": "energy_clean", "filter": {**own, "carrier": CARRIER}}
         result = {"table": "scope2_site_year", "filter": own}
         guarantees = {
             "table": "goo_registry_statement",
-            "filter": {"beneficiary_site": site, "consumption_year": year},
+            "filter": {"consumption_year": year}
+            if site is None
+            else {"beneficiary_site": site, "consumption_year": year},
         }
         with_guarantees = record["goo_listed_mwh"] > 0
         measures = [
@@ -152,7 +165,7 @@ def metric_rows(table: pd.DataFrame) -> list[dict[str, Any]]:
         for name, unit, column, lineage, assumptions in measures:
             rows.append(
                 {
-                    "key": f"{name}|{site}|{year}",
+                    "key": f"{name}|{site or 'total'}|{year}",
                     "name": name,
                     "unit": unit,
                     "value": float(record[column]),
@@ -178,7 +191,7 @@ def metric_rows(table: pd.DataFrame) -> list[dict[str, Any]]:
     summary=(
         "Prices purchased electricity per site and year as location-based and market-based "
         "Scope 2, from the cleaned readings, the national factors and the guarantees of origin "
-        "the registry shows for the same year."
+        "the registry shows for the same year, and totals each year over all sites."
     ),
 )
 def scope2_electricity(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> StepResult:
@@ -207,8 +220,8 @@ def scope2_electricity(ctx: RunContext, inputs: dict[str, Artifact], params: Par
 
     with section(
         "write metrics",
-        "Gives each site and year its electricity use and both Scope 2 figures, with the "
-        "readings and guarantees behind them.",
+        "Gives each site and year, and each year's total, the electricity use and both Scope 2 "
+        "figures, with the readings and guarantees behind them.",
     ):
         metrics = pd.DataFrame(metric_rows(table), columns=METRIC_COLUMNS)
 

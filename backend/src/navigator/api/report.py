@@ -27,6 +27,8 @@ STATUS_WORDS = {
     "published": "published",
     "superseded": "superseded",
 }
+DEFAULT_TITLE = "Climate risk report"
+REPORT_TITLES = {"energy_meter_check": "Scope 2 electricity report"}
 TOKEN = re.compile(r"\{\{(metric|insight):(\w+)\}\}")
 NOT_ALLOWED = {
     403: {"model": schemas.ErrorMessage, "description": "The persona cannot do this."},
@@ -237,8 +239,17 @@ def _publish(session: Session, result_set: m.ResultSet, now: datetime) -> None:
     )
 
 
-def format_metric(unit: str, value: float) -> str:
+# Recipe 2 adds up meter readings, so its figures keep whole units, as on the Scope 2 screen.
+MEASURED = ("scope2_electricity.", "compare_inventory.")
+
+
+def format_metric(unit: str, value: float, name: str = "") -> str:
     """A metric as the report shows it: two significant figures for euros, one decimal for %."""
+    if name.startswith(MEASURED):
+        digits = 1 if abs(value) < 10 else 0
+        rounded = round(value, digits) + 0.0  # adding 0.0 turns -0.0 into 0.0
+        text = f"{rounded:,.{digits}f}".removesuffix(".0")
+        return f"{text} {unit}"
     if unit == "%":
         return f"{value:.1f}%"
     if unit == "share":
@@ -259,7 +270,11 @@ def format_metric(unit: str, value: float) -> str:
 def _resolve(text: str, metrics: dict[str, m.Metric], insights: dict[str, m.Insight]) -> str:
     def metric_text(found: re.Match[str]) -> str:
         metric = metrics.get(found.group(2))
-        return found.group(0) if metric is None else format_metric(metric.unit, metric.value)
+        return (
+            found.group(0)
+            if metric is None
+            else format_metric(metric.unit, metric.value, metric.name)
+        )
 
     def replace(found: re.Match[str]) -> str:
         if found.group(1) == "metric":
@@ -288,6 +303,7 @@ def export_report(result_set_id: str, session: SessionDep) -> Response:
             "Only a published report can be exported. Publish the report first.",
         )
     report = _shown_report(session, result_set_id)
+    recipe_id = session.get_one(m.Run, result_set.run_id).recipe_id
     metrics = {
         x.metric_id: x
         for x in session.scalars(select(m.Metric).where(m.Metric.result_set_id == result_set_id))
@@ -298,7 +314,7 @@ def export_report(result_set_id: str, session: SessionDep) -> Response:
     }
     published = result_set.published_at or datetime.now(UTC)
     lines = [
-        "# Climate risk report",
+        f"# {REPORT_TITLES.get(recipe_id, DEFAULT_TITLE)}",
         "",
         f"Published {published:%-d %B %Y}"
         + (f", approved by {result_set.approved_by}." if result_set.approved_by else "."),

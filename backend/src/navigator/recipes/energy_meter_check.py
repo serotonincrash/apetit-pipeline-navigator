@@ -91,7 +91,7 @@ RECIPE = Recipe(
         StepSpec(
             "explain_proposals",
             inputs=(PROPOSALS_INPUT,),
-            params={"max_explanations": None, "concurrency": 4},
+            params={"max_explanations": None, "concurrency": 8},
         ),
         StepSpec(
             "backtest_meters",

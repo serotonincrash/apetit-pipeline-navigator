@@ -1,6 +1,7 @@
 """The wrapper steps call through ctx.llm: prompt in, validated object out, every attempt logged."""
 
 import hashlib
+import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 
@@ -78,6 +79,7 @@ class Llm:
         self._on_failure: FailureHandler = on_failure or _ignore_failure
         self._record = record
         self._switch_reason = ""
+        self._switch_lock = threading.Lock()
 
     def call[T: BaseModel](
         self,
@@ -127,10 +129,13 @@ class Llm:
         try:
             return self._model.generate(prompt, schema)
         except ModelUnavailable as exc:
-            self._switch_reason = f"Switched to the fake model: {exc}"
-            log.warning("llm switched to fake model", extra={"reason": str(exc)})
-            self._model = self._fallback
-            return self._model.generate(prompt, schema)
+            # Calls overlap in threads: the first to fail switches, the others find it switched.
+            with self._switch_lock:
+                if not self._switch_reason:
+                    self._switch_reason = f"Switched to the fake model: {exc}"
+                    log.warning("llm switched to fake model", extra={"reason": str(exc)})
+                self._model = self._fallback
+            return self._fallback.generate(prompt, schema)
 
     def _validate[T: BaseModel](
         self,

@@ -120,7 +120,7 @@ RECIPE = Recipe(
                 # that have no explanation yet; the rest wait for the next run.
                 "max_explanations": None,
                 # Requests in flight at once, one per explanation.
-                "concurrency": 4,
+                "concurrency": 8,
             },
         ),
         StepSpec(
