@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from navigator import ids
 from navigator.db import models as m
+from navigator.db.decisions import latest_decisions, proposal_status, proposal_value
 from navigator.db.session import session_scope
 from navigator.logs import get_logger
 from navigator.recipes.core import (
@@ -82,28 +83,11 @@ def step_params(recipe_step: StepSpec, overrides: Mapping[str, Any]) -> Params:
 def proposals_with_status(session: Session, run_id: str) -> pd.DataFrame:
     """This run's proposals, each with the status set by its latest decision."""
     proposals = session.scalars(select(m.Proposal).where(m.Proposal.run_id == run_id)).all()
-    keys = [p.proposal_key for p in proposals]
-    latest: dict[str, m.Decision] = {}
-    if keys:
-        decisions = session.scalars(
-            select(m.Decision)
-            .where(m.Decision.target_type == "proposal", m.Decision.target_id.in_(keys))
-            .order_by(m.Decision.decided_at)
-        ).all()
-        latest = {d.target_id: d for d in decisions}
+    latest = latest_decisions(session, "proposal", (p.proposal_key for p in proposals))
 
     rows: list[dict[str, Any]] = []
     for p in proposals:
         decision = latest.get(p.proposal_key)
-        if p.action == "flag":
-            status = "rejected" if decision and decision.decision == "reject" else "flag"
-        elif decision is None:
-            status = "open"
-        else:
-            status = {"approve": "approved", "edit": "approved", "reject": "rejected"}[
-                decision.decision
-            ]
-        new_value = decision.edited_value if decision and decision.edited_value else p.new_value
         rows.append(
             {
                 "proposal_key": p.proposal_key,
@@ -113,9 +97,9 @@ def proposals_with_status(session: Session, run_id: str) -> pd.DataFrame:
                 "record_key": p.record_key,
                 "field": p.field,
                 "old_value": p.old_value,
-                "new_value": new_value,
+                "new_value": proposal_value(p.new_value, decision),
                 "action": p.action,
-                "status": status,
+                "status": proposal_status(p.action, decision),
             }
         )
     columns = [

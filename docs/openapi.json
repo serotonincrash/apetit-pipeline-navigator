@@ -1,0 +1,4683 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Climate and Nature Navigator",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "shared"
+        ],
+        "summary": "Get Health",
+        "description": "Liveness check for Caddy and Compose.",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/personas": {
+      "get": {
+        "tags": [
+          "shared"
+        ],
+        "summary": "List Personas",
+        "description": "The roles a person can act as. The person types the name recorded on their decisions.",
+        "operationId": "listPersonas",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Persona"
+                  },
+                  "type": "array",
+                  "title": "Response Listpersonas"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Create Run",
+        "description": "Queue a full run of a recipe, with optional overrides of its step params.",
+        "operationId": "createRun",
+        "parameters": [
+          {
+            "name": "x-persona",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded.",
+              "title": "X-Persona"
+            },
+            "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "List Runs",
+        "description": "Runs, newest first.",
+        "operationId": "listRuns",
+        "parameters": [
+          {
+            "name": "recipe_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Recipe Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "running",
+                    "succeeded",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Get Run",
+        "description": "One run with its steps in order, their annotations and the tables they wrote.",
+        "operationId": "getRun",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/events": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Stream Run Events",
+        "description": "The run's progress events in order, the stored ones first, then new ones as they happen.\n\nAnswering 204 once the client has seen the end stops the browser reconnecting.",
+        "operationId": "streamRunEvents",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "last-event-id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The seq of the last event received; the stream resumes after it.",
+              "title": "Last-Event-Id"
+            },
+            "description": "The seq of the last event received; the stream resumes after it."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-sent events. Each event's `id` is its seq and its `data` is one RunEvent as JSON. The stream ends after `run.finished`.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunEvent"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "The run has finished and the client has seen every event."
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artifacts/{artifact_id}": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Get Artifact",
+        "description": "A table's metadata: the step that wrote it, its layer, row count and content hash.",
+        "operationId": "getArtifact",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artifact Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Artifact"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artifacts/{artifact_id}/rows": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "List Artifact Rows",
+        "description": "Rows of a table, filtered and paged, in the order the step wrote them.",
+        "operationId": "listArtifactRows",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artifact Id"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "column=value, repeatable. Filters on different columns all apply; repeating a column matches any of its values. Values compare as text.",
+              "examples": [
+                "farm_id=FS02175"
+              ],
+              "title": "Filter"
+            },
+            "description": "column=value, repeatable. Filters on different columns all apply; repeating a column matches any of its values. Values compare as text."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactRows"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artifacts/{artifact_id}/export": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Export Artifact",
+        "description": "The filtered rows of a table as an Excel file.",
+        "operationId": "exportArtifact",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Artifact Id"
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "column=value, repeatable. Filters on different columns all apply; repeating a column matches any of its values. Values compare as text.",
+              "examples": [
+                "farm_id=FS02175"
+              ],
+              "title": "Filter"
+            },
+            "description": "column=value, repeatable. Filters on different columns all apply; repeating a column matches any of its values. Values compare as text."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The filtered rows as an Excel file.",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proposals": {
+      "get": {
+        "tags": [
+          "review"
+        ],
+        "summary": "List Proposals",
+        "description": "One run's proposals, filtered by rule, table and status, ordered by rule and record.",
+        "operationId": "listProposals",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Defaults to the latest run that wrote proposals.",
+              "title": "Run Id"
+            },
+            "description": "Defaults to the latest run that wrote proposals."
+          },
+          {
+            "name": "rule_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rule Id"
+            }
+          },
+          {
+            "name": "table",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Table"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "open",
+                    "approved",
+                    "rejected",
+                    "flag"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalList"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proposals/{proposal_id}": {
+      "get": {
+        "tags": [
+          "review"
+        ],
+        "summary": "Get Proposal",
+        "description": "One proposal with its evidence, its explanation and every decision on it.",
+        "operationId": "getProposal",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProposalDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proposals/decisions": {
+      "post": {
+        "tags": [
+          "review"
+        ],
+        "summary": "Decide Proposals",
+        "description": "Apply one decision to many proposals, such as all of one rule. Each gets its own row.",
+        "operationId": "decideProposals",
+        "parameters": [
+          {
+            "name": "x-persona",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded.",
+              "title": "X-Persona"
+            },
+            "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkProposalDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Decision"
+                  },
+                  "title": "Response Decideproposals"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/proposals/{proposal_id}/decisions": {
+      "post": {
+        "tags": [
+          "review"
+        ],
+        "summary": "Decide Proposal",
+        "description": "Approve, edit or reject one proposal, with an optional comment.",
+        "operationId": "decideProposal",
+        "parameters": [
+          {
+            "name": "proposal_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Proposal Id"
+            }
+          },
+          {
+            "name": "x-persona",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded.",
+              "title": "X-Persona"
+            },
+            "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProposalDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rules": {
+      "get": {
+        "tags": [
+          "rules"
+        ],
+        "summary": "List Rules",
+        "description": "Every version of every rule, newest version first within a rule.",
+        "operationId": "listRules",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Rule"
+                  },
+                  "type": "array",
+                  "title": "Response Listrules"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/rules/{rule_id}/decisions": {
+      "post": {
+        "tags": [
+          "rules"
+        ],
+        "summary": "Decide Rule",
+        "description": "Approve or reject one version of a rule. Only approved rules run in recipes.",
+        "operationId": "decideRule",
+        "parameters": [
+          {
+            "name": "rule_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Rule Id"
+            }
+          },
+          {
+            "name": "x-persona",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded.",
+              "title": "X-Persona"
+            },
+            "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/result-sets": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "List Result Sets",
+        "description": "Result sets, newest first, optionally those of one run.",
+        "operationId": "listResultSets",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "in_review",
+                    "approved",
+                    "published",
+                    "superseded"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResultSet"
+                  },
+                  "title": "Response Listresultsets"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/result-sets/{result_set_id}/metrics": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "List Metrics",
+        "description": "Metrics of a result set, filtered by region, crop, climate and NGFS scenario.",
+        "operationId": "listMetrics",
+        "parameters": [
+          {
+            "name": "result_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Result Set Id"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Name"
+            }
+          },
+          {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Region"
+            }
+          },
+          {
+            "name": "crop",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Crop"
+            }
+          },
+          {
+            "name": "scenario",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scenario"
+            }
+          },
+          {
+            "name": "ngfs_scenario",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ngfs Scenario"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 5000,
+              "minimum": 1,
+              "default": 1000,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricList"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics/{metric_id}/sources": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "Get Metric Sources",
+        "description": "Where a number came from: source tables and filters, corrections and assumptions.",
+        "operationId": "getMetricSources",
+        "parameters": [
+          {
+            "name": "metric_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Metric Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricSources"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assumptions": {
+      "get": {
+        "tags": [
+          "risk"
+        ],
+        "summary": "List Assumptions",
+        "description": "Assumptions behind a result set or run. Changing one means queuing a run with overrides.",
+        "operationId": "listAssumptions",
+        "parameters": [
+          {
+            "name": "result_set_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Result Set Id"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Assumption"
+                  },
+                  "title": "Response Listassumptions"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/actions": {
+      "get": {
+        "tags": [
+          "actions"
+        ],
+        "summary": "List Actions",
+        "description": "The action catalogue and the actions the action proposer suggested.",
+        "operationId": "listActions",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "proposed",
+                    "approved_to_run",
+                    "rejected"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Action"
+                  },
+                  "title": "Response Listactions"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/actions/{action_id}/decisions": {
+      "post": {
+        "tags": [
+          "actions"
+        ],
+        "summary": "Decide Action",
+        "description": "Approve an action to run as a what-if, or reject it.",
+        "operationId": "decideAction",
+        "parameters": [
+          {
+            "name": "action_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Action Id"
+            }
+          },
+          {
+            "name": "x-persona",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded.",
+              "title": "X-Persona"
+            },
+            "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/result-sets/{result_set_id}/action-options": {
+      "get": {
+        "tags": [
+          "actions"
+        ],
+        "summary": "List Action Options",
+        "description": "Priced what-if results for a result set, for comparing cost and risk removed.",
+        "operationId": "listActionOptions",
+        "parameters": [
+          {
+            "name": "result_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Result Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ActionOption"
+                  },
+                  "title": "Response Listactionoptions"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/action-options/{option_id}/decisions": {
+      "post": {
+        "tags": [
+          "actions"
+        ],
+        "summary": "Decide Action Option",
+        "description": "Mark a priced option as recommended, considered or rejected, with a comment.",
+        "operationId": "decideActionOption",
+        "parameters": [
+          {
+            "name": "option_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Option Id"
+            }
+          },
+          {
+            "name": "x-persona",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded.",
+              "title": "X-Persona"
+            },
+            "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionOptionDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/result-sets/{result_set_id}/report": {
+      "post": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Request Report",
+        "description": "Queue a report run: the report drafter writes a draft for results review.",
+        "operationId": "requestReport",
+        "parameters": [
+          {
+            "name": "result_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Result Set Id"
+            }
+          },
+          {
+            "name": "x-persona",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded.",
+              "title": "X-Persona"
+            },
+            "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded."
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Run"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Get Report",
+        "description": "The draft or published report, with every cited metric.",
+        "operationId": "getReport",
+        "parameters": [
+          {
+            "name": "result_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Result Set Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Report"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/result-sets/{result_set_id}/decisions": {
+      "post": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Decide Result Set",
+        "description": "Move a result set to in review, approved or published.",
+        "operationId": "decideResultSet",
+        "parameters": [
+          {
+            "name": "result_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Result Set Id"
+            }
+          },
+          {
+            "name": "x-persona",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded.",
+              "title": "X-Persona"
+            },
+            "description": "Required on every write: `<role>:<name>`, for example `data_specialist:A. Reviewer`. The name may be percent-encoded."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResultSetDecisionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Decision"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The X-Persona header is missing or malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/result-sets/{result_set_id}/report/export": {
+      "get": {
+        "tags": [
+          "report"
+        ],
+        "summary": "Export Report",
+        "description": "The published report as PDF or Markdown.",
+        "operationId": "exportReport",
+        "parameters": [
+          {
+            "name": "result_set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Result Set Id"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "pdf",
+                "markdown"
+              ],
+              "type": "string",
+              "default": "pdf",
+              "title": "Format"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The published report as a file.",
+            "content": {
+              "application/pdf": {},
+              "text/markdown": {}
+            }
+          },
+          "404": {
+            "description": "No record with that id.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not built yet. The message names the milestone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Action": {
+        "properties": {
+          "action_id": {
+            "type": "string",
+            "title": "Action Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "short_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Short Name"
+          },
+          "driver": {
+            "type": "string",
+            "title": "Driver"
+          },
+          "applies_at": {
+            "type": "string",
+            "title": "Applies At",
+            "description": "The step the action's override applies at."
+          },
+          "override": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Override"
+          },
+          "scope": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Scope"
+          },
+          "cost": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Cost"
+          },
+          "confidence": {
+            "type": "string",
+            "title": "Confidence"
+          },
+          "proposed_by": {
+            "type": "string",
+            "title": "Proposed By"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved_to_run",
+              "rejected"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_id",
+          "name",
+          "short_name",
+          "driver",
+          "applies_at",
+          "override",
+          "scope",
+          "cost",
+          "confidence",
+          "proposed_by",
+          "status",
+          "created_at"
+        ],
+        "title": "Action"
+      },
+      "ActionDecisionRequest": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "ActionDecisionRequest"
+      },
+      "ActionOption": {
+        "properties": {
+          "option_id": {
+            "type": "string",
+            "title": "Option Id"
+          },
+          "action_id": {
+            "type": "string",
+            "title": "Action Id"
+          },
+          "result_set_id": {
+            "type": "string",
+            "title": "Result Set Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id",
+            "description": "The what-if run that priced this option."
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "crop": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crop"
+          },
+          "cost_eur_per_yr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Eur Per Yr"
+          },
+          "risk_reduced_eur_per_yr": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Reduced Eur Per Yr"
+          },
+          "emissions_change_t": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emissions Change T"
+          },
+          "assumption_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumption Ids"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "recommended",
+                  "considered",
+                  "rejected"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "Empty until a reviewer marks it."
+          }
+        },
+        "type": "object",
+        "required": [
+          "option_id",
+          "action_id",
+          "result_set_id",
+          "run_id",
+          "name",
+          "region",
+          "crop",
+          "cost_eur_per_yr",
+          "risk_reduced_eur_per_yr",
+          "emissions_change_t",
+          "assumption_ids",
+          "confidence",
+          "status"
+        ],
+        "title": "ActionOption"
+      },
+      "ActionOptionDecisionRequest": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "recommended",
+              "considered",
+              "rejected"
+            ],
+            "title": "Decision"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "ActionOptionDecisionRequest"
+      },
+      "Artifact": {
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "title": "Artifact Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step_run_id": {
+            "type": "string",
+            "title": "Step Run Id"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "layer": {
+            "type": "string",
+            "enum": [
+              "raw",
+              "clean",
+              "feature",
+              "result"
+            ],
+            "title": "Layer"
+          },
+          "row_count": {
+            "type": "integer",
+            "title": "Row Count"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "run_id",
+          "step_run_id",
+          "step",
+          "name",
+          "layer",
+          "row_count",
+          "columns",
+          "content_hash",
+          "created_at"
+        ],
+        "title": "Artifact"
+      },
+      "ArtifactRows": {
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "title": "Artifact Id"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Rows matching the filters, before paging."
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          },
+          "rows": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "columns",
+          "total",
+          "limit",
+          "offset",
+          "rows"
+        ],
+        "title": "ArtifactRows"
+      },
+      "Assumption": {
+        "properties": {
+          "assumption_id": {
+            "type": "string",
+            "title": "Assumption Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "value": {
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "assumption_id",
+          "run_id",
+          "step",
+          "name",
+          "value",
+          "unit",
+          "source",
+          "owner",
+          "status"
+        ],
+        "title": "Assumption"
+      },
+      "BulkProposalDecisionRequest": {
+        "properties": {
+          "proposal_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Proposal Ids"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_ids",
+          "decision"
+        ],
+        "title": "BulkProposalDecisionRequest"
+      },
+      "Decision": {
+        "properties": {
+          "decision_id": {
+            "type": "string",
+            "title": "Decision Id"
+          },
+          "target_type": {
+            "type": "string",
+            "title": "Target Type"
+          },
+          "target_id": {
+            "type": "string",
+            "title": "Target Id",
+            "description": "For a proposal, its proposal key, so it carries over."
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision"
+          },
+          "edited_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Value"
+          },
+          "reviewer": {
+            "type": "string",
+            "title": "Reviewer"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Decided At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision_id",
+          "target_type",
+          "target_id",
+          "decision",
+          "edited_value",
+          "reviewer",
+          "comment",
+          "run_id",
+          "decided_at"
+        ],
+        "title": "Decision"
+      },
+      "ErrorMessage": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ErrorMessage"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "Health"
+      },
+      "Metric": {
+        "properties": {
+          "metric_id": {
+            "type": "string",
+            "title": "Metric Id"
+          },
+          "result_set_id": {
+            "type": "string",
+            "title": "Result Set Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region"
+          },
+          "crop": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crop"
+          },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario"
+          },
+          "ngfs_scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ngfs Scenario"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          },
+          "assumption_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Assumption Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric_id",
+          "result_set_id",
+          "name",
+          "unit",
+          "value",
+          "region",
+          "crop",
+          "scenario",
+          "ngfs_scenario",
+          "period",
+          "assumption_ids"
+        ],
+        "title": "Metric"
+      },
+      "MetricList": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Metric"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "MetricList"
+      },
+      "MetricSource": {
+        "properties": {
+          "artifact": {
+            "$ref": "#/components/schemas/Artifact"
+          },
+          "filters": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Filters",
+            "description": "The lineage filter, in the format GET /api/artifacts/{id}/rows takes."
+          },
+          "row_count": {
+            "type": "integer",
+            "title": "Row Count",
+            "description": "Contributing rows in this artifact."
+          }
+        },
+        "type": "object",
+        "required": [
+          "artifact",
+          "filters",
+          "row_count"
+        ],
+        "title": "MetricSource"
+      },
+      "MetricSources": {
+        "properties": {
+          "metric": {
+            "$ref": "#/components/schemas/Metric"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/MetricSource"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "corrections": {
+            "items": {
+              "$ref": "#/components/schemas/Proposal"
+            },
+            "type": "array",
+            "title": "Corrections",
+            "description": "Approved fixes on the contributing rows."
+          },
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/Assumption"
+            },
+            "type": "array",
+            "title": "Assumptions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric",
+          "sources",
+          "corrections",
+          "assumptions"
+        ],
+        "title": "MetricSources"
+      },
+      "Persona": {
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "data_specialist",
+              "sustainability_specialist"
+            ],
+            "title": "Role"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "How the app shows the role, for example 'Data specialist'."
+          }
+        },
+        "type": "object",
+        "required": [
+          "role",
+          "label"
+        ],
+        "title": "Persona"
+      },
+      "Proposal": {
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "title": "Proposal Id"
+          },
+          "proposal_key": {
+            "type": "string",
+            "title": "Proposal Key",
+            "description": "Rule, record key and field; the same in every run."
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "issue_type": {
+            "type": "string",
+            "title": "Issue Type"
+          },
+          "proposer": {
+            "type": "string",
+            "title": "Proposer"
+          },
+          "table": {
+            "type": "string",
+            "title": "Table"
+          },
+          "record_key": {
+            "type": "string",
+            "title": "Record Key"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value"
+          },
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value",
+            "description": "The value proposed, before any edit."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "fix",
+              "flag"
+            ],
+            "title": "Action"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "approved",
+              "rejected",
+              "flag"
+            ],
+            "title": "Status"
+          },
+          "latest_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "proposal_key",
+          "run_id",
+          "rule_id",
+          "issue_type",
+          "proposer",
+          "table",
+          "record_key",
+          "field",
+          "old_value",
+          "new_value",
+          "action",
+          "status",
+          "latest_decision"
+        ],
+        "title": "Proposal"
+      },
+      "ProposalDecisionRequest": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "edit",
+              "reject"
+            ],
+            "title": "Decision"
+          },
+          "edited_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edited Value",
+            "description": "Required when editing."
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "ProposalDecisionRequest"
+      },
+      "ProposalDetail": {
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "title": "Proposal Id"
+          },
+          "proposal_key": {
+            "type": "string",
+            "title": "Proposal Key",
+            "description": "Rule, record key and field; the same in every run."
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "issue_type": {
+            "type": "string",
+            "title": "Issue Type"
+          },
+          "proposer": {
+            "type": "string",
+            "title": "Proposer"
+          },
+          "table": {
+            "type": "string",
+            "title": "Table"
+          },
+          "record_key": {
+            "type": "string",
+            "title": "Record Key"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "old_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Value"
+          },
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value",
+            "description": "The value proposed, before any edit."
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "fix",
+              "flag"
+            ],
+            "title": "Action"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "approved",
+              "rejected",
+              "flag"
+            ],
+            "title": "Status"
+          },
+          "latest_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence": {
+            "type": "string",
+            "title": "Evidence"
+          },
+          "explanation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation"
+          },
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/Decision"
+            },
+            "type": "array",
+            "title": "Decisions",
+            "description": "Every decision on this proposal, oldest first."
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "proposal_key",
+          "run_id",
+          "rule_id",
+          "issue_type",
+          "proposer",
+          "table",
+          "record_key",
+          "field",
+          "old_value",
+          "new_value",
+          "action",
+          "status",
+          "latest_decision",
+          "evidence",
+          "explanation",
+          "decisions"
+        ],
+        "title": "ProposalDetail"
+      },
+      "ProposalList": {
+        "properties": {
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id",
+            "description": "The run these proposals come from."
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Proposal"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "total",
+          "items"
+        ],
+        "title": "ProposalList"
+      },
+      "ProposalsCreatedEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Order of the event in the run; also the stream's event id."
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "type": {
+            "type": "string",
+            "const": "proposal.created",
+            "title": "Type"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/ProposalsCreatedPayload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "event_id",
+          "run_id",
+          "step",
+          "created_at",
+          "type",
+          "payload"
+        ],
+        "title": "ProposalsCreatedEvent"
+      },
+      "ProposalsCreatedPayload": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "count_per_rule": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Count Per Rule"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "count_per_rule"
+        ],
+        "title": "ProposalsCreatedPayload"
+      },
+      "Report": {
+        "properties": {
+          "result_set_id": {
+            "type": "string",
+            "title": "Result Set Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "in_review",
+              "approved",
+              "published",
+              "superseded"
+            ],
+            "title": "Status"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id",
+            "description": "The report run that wrote the draft."
+          },
+          "drafted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Drafted At"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "paragraphs": {
+            "items": {
+              "$ref": "#/components/schemas/ReportParagraph"
+            },
+            "type": "array",
+            "title": "Paragraphs"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Metric"
+            },
+            "type": "object",
+            "title": "Metrics",
+            "description": "Every cited metric, by metric id."
+          }
+        },
+        "type": "object",
+        "required": [
+          "result_set_id",
+          "status",
+          "run_id",
+          "drafted_at",
+          "published_at",
+          "paragraphs",
+          "metrics"
+        ],
+        "title": "Report"
+      },
+      "ReportParagraph": {
+        "properties": {
+          "heading": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heading"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Numbers appear as citation tokens such as {{metric:met_...}}."
+          }
+        },
+        "type": "object",
+        "required": [
+          "heading",
+          "text"
+        ],
+        "title": "ReportParagraph"
+      },
+      "ResultSet": {
+        "properties": {
+          "result_set_id": {
+            "type": "string",
+            "title": "Result Set Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "in_review",
+              "approved",
+              "published",
+              "superseded"
+            ],
+            "title": "Status"
+          },
+          "approved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved By"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "result_set_id",
+          "run_id",
+          "status",
+          "approved_by",
+          "published_at",
+          "created_at"
+        ],
+        "title": "ResultSet"
+      },
+      "ResultSetDecisionRequest": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "in_review",
+              "approved",
+              "published"
+            ],
+            "title": "Status"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "ResultSetDecisionRequest"
+      },
+      "Rule": {
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "author": {
+            "type": "string",
+            "title": "Author"
+          },
+          "backtest": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Backtest",
+            "description": "Precision and recall on labelled history."
+          },
+          "last_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "approved",
+              "rejected"
+            ],
+            "title": "Status"
+          },
+          "latest_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Decision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "rule_id",
+          "version",
+          "description",
+          "code",
+          "author",
+          "backtest",
+          "last_run_id",
+          "created_at",
+          "status",
+          "latest_decision"
+        ],
+        "title": "Rule"
+      },
+      "RuleDecisionRequest": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "approve",
+              "reject"
+            ],
+            "title": "Decision"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version",
+            "description": "Defaults to the latest version."
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": [
+          "decision"
+        ],
+        "title": "RuleDecisionRequest"
+      },
+      "Run": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "recipe_id": {
+            "type": "string",
+            "title": "Recipe Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "full",
+              "what_if",
+              "report"
+            ],
+            "title": "Kind"
+          },
+          "parent_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Run Id"
+          },
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "triggered_by": {
+            "type": "string",
+            "title": "Triggered By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "result_set_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Set Id",
+            "description": "Set once the run has succeeded."
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "recipe_id",
+          "version",
+          "kind",
+          "parent_run_id",
+          "action_id",
+          "status",
+          "error",
+          "triggered_by",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "result_set_id"
+        ],
+        "title": "Run"
+      },
+      "RunDetail": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "recipe_id": {
+            "type": "string",
+            "title": "Recipe Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "full",
+              "what_if",
+              "report"
+            ],
+            "title": "Kind"
+          },
+          "parent_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Run Id"
+          },
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "triggered_by": {
+            "type": "string",
+            "title": "Triggered By"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "result_set_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Set Id",
+            "description": "Set once the run has succeeded."
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params"
+          },
+          "params_hash": {
+            "type": "string",
+            "title": "Params Hash"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepRun"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "recipe_id",
+          "version",
+          "kind",
+          "parent_run_id",
+          "action_id",
+          "status",
+          "error",
+          "triggered_by",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "result_set_id",
+          "params",
+          "params_hash",
+          "steps",
+          "artifacts"
+        ],
+        "title": "RunDetail"
+      },
+      "RunEvent": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/RunStatusEvent"
+          },
+          {
+            "$ref": "#/components/schemas/StepStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/StepFinishedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/SectionStartedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/SectionFinishedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/ProposalsCreatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/RunFinishedEvent"
+          }
+        ],
+        "title": "RunEvent",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "proposal.created": "#/components/schemas/ProposalsCreatedEvent",
+            "run.finished": "#/components/schemas/RunFinishedEvent",
+            "run.status": "#/components/schemas/RunStatusEvent",
+            "section.finished": "#/components/schemas/SectionFinishedEvent",
+            "section.started": "#/components/schemas/SectionStartedEvent",
+            "step.finished": "#/components/schemas/StepFinishedEvent",
+            "step.started": "#/components/schemas/StepStartedEvent"
+          }
+        }
+      },
+      "RunFinishedEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Order of the event in the run; also the stream's event id."
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "type": {
+            "type": "string",
+            "const": "run.finished",
+            "title": "Type"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/RunFinishedPayload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "event_id",
+          "run_id",
+          "step",
+          "created_at",
+          "type",
+          "payload"
+        ],
+        "title": "RunFinishedEvent"
+      },
+      "RunFinishedPayload": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "result_set_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Set Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "result_set_id"
+        ],
+        "title": "RunFinishedPayload"
+      },
+      "RunList": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/Run"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "RunList"
+      },
+      "RunRequest": {
+        "properties": {
+          "recipe_id": {
+            "type": "string",
+            "title": "Recipe Id",
+            "examples": [
+              "farm_climate_risk"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "full",
+              "what_if"
+            ],
+            "title": "Kind",
+            "default": "full"
+          },
+          "parent_run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Run Id",
+            "description": "The approved run a what-if starts from."
+          },
+          "action_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action Id",
+            "description": "The action a what-if applies."
+          },
+          "step_params": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Step Params",
+            "description": "Overrides of step params, by step name and then param name.",
+            "examples": [
+              {
+                "check_farm_data": {
+                  "r1_yield_max_ratio_to_median": 4.0
+                }
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipe_id"
+        ],
+        "title": "RunRequest"
+      },
+      "RunStatusEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Order of the event in the run; also the stream's event id."
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "type": {
+            "type": "string",
+            "const": "run.status",
+            "title": "Type"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/RunStatusPayload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "event_id",
+          "run_id",
+          "step",
+          "created_at",
+          "type",
+          "payload"
+        ],
+        "title": "RunStatusEvent"
+      },
+      "RunStatusPayload": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "RunStatusPayload"
+      },
+      "SectionFinishedEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Order of the event in the run; also the stream's event id."
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "type": {
+            "type": "string",
+            "const": "section.finished",
+            "title": "Type"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/SectionFinishedPayload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "event_id",
+          "run_id",
+          "step",
+          "created_at",
+          "type",
+          "payload"
+        ],
+        "title": "SectionFinishedEvent"
+      },
+      "SectionFinishedPayload": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "section": {
+            "type": "string",
+            "title": "Section"
+          },
+          "annotation": {
+            "type": "string",
+            "title": "Annotation"
+          },
+          "seconds": {
+            "type": "number",
+            "title": "Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "section",
+          "annotation",
+          "seconds"
+        ],
+        "title": "SectionFinishedPayload"
+      },
+      "SectionStartedEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Order of the event in the run; also the stream's event id."
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "type": {
+            "type": "string",
+            "const": "section.started",
+            "title": "Type"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/SectionStartedPayload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "event_id",
+          "run_id",
+          "step",
+          "created_at",
+          "type",
+          "payload"
+        ],
+        "title": "SectionStartedEvent"
+      },
+      "SectionStartedPayload": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "section": {
+            "type": "string",
+            "title": "Section"
+          },
+          "annotation": {
+            "type": "string",
+            "title": "Annotation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "section",
+          "annotation"
+        ],
+        "title": "SectionStartedPayload"
+      },
+      "StepFinishedEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Order of the event in the run; also the stream's event id."
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "type": {
+            "type": "string",
+            "const": "step.finished",
+            "title": "Type"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/StepFinishedPayload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "event_id",
+          "run_id",
+          "step",
+          "created_at",
+          "type",
+          "payload"
+        ],
+        "title": "StepFinishedEvent"
+      },
+      "StepFinishedPayload": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "annotation": {
+            "type": "string",
+            "title": "Annotation"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed",
+              "reused"
+            ],
+            "title": "Status"
+          },
+          "seconds": {
+            "type": "number",
+            "title": "Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "annotation",
+          "status",
+          "seconds"
+        ],
+        "title": "StepFinishedPayload"
+      },
+      "StepRun": {
+        "properties": {
+          "step_run_id": {
+            "type": "string",
+            "title": "Step Run Id"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "load",
+              "propose",
+              "transform",
+              "model",
+              "llm",
+              "human"
+            ],
+            "title": "Kind"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "The step's annotation, shown beside it in the timeline."
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "succeeded",
+              "failed",
+              "reused"
+            ],
+            "title": "Status"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "The last line of the error, when the step failed."
+          },
+          "seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seconds"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "input_artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Input Artifacts"
+          },
+          "output_artifacts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Output Artifacts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_run_id",
+          "position",
+          "step",
+          "kind",
+          "summary",
+          "params",
+          "status",
+          "error",
+          "seconds",
+          "started_at",
+          "finished_at",
+          "input_artifacts",
+          "output_artifacts"
+        ],
+        "title": "StepRun"
+      },
+      "StepStartedEvent": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq",
+            "description": "Order of the event in the run; also the stream's event id."
+          },
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "type": {
+            "type": "string",
+            "const": "step.started",
+            "title": "Type"
+          },
+          "payload": {
+            "$ref": "#/components/schemas/StepStartedPayload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "event_id",
+          "run_id",
+          "step",
+          "created_at",
+          "type",
+          "payload"
+        ],
+        "title": "StepStartedEvent"
+      },
+      "StepStartedPayload": {
+        "properties": {
+          "step": {
+            "type": "string",
+            "title": "Step"
+          },
+          "annotation": {
+            "type": "string",
+            "title": "Annotation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "annotation"
+        ],
+        "title": "StepStartedPayload"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
