@@ -32,11 +32,6 @@ from navigator.recipes.core import (
     step,
 )
 
-# The heat-sensitive (flowering) window starts with the drought-sensitive window and lasts this
-# share of the season's degree-days.
-FLOWER_WINDOW_SHARE = 0.25
-# Early and late deliveries, as quantiles of each crop's ERP posting dates.
-DELIVERY_QUANTILES = (0.05, 0.95)
 # The ERP movement type of a goods receipt, which is a delivery to the factory.
 GOODS_RECEIPT = 101
 # The ready date does not depend on the soil, so one soil class counts each cell-season once.
@@ -44,15 +39,24 @@ READY_DATE_SOIL = "clay"
 
 
 def calendar_setting(
-    crop: str, gdd_maturity: float, sow_temp_c: float, window_start: float, window_span: float
+    crop: str,
+    gdd_maturity: float,
+    sow_temp_c: float,
+    window_start: float,
+    window_span: float,
+    flower_share: float,
 ) -> cw.CropParams:
-    """The crop's starting calendar with one grid setting applied."""
+    """The crop's starting calendar with one grid setting applied.
+
+    The heat-sensitive (flowering) window starts with the drought-sensitive window and lasts
+    `flower_share` of the season's degree-days.
+    """
     return replace(
         cw.DEFAULT_PARAMS[crop],
         gdd_maturity=float(gdd_maturity),
         sow_temp_c=float(sow_temp_c),
         sensitive=(window_start, round(window_start + window_span, 2)),
-        flower=(window_start, round(min(window_start + FLOWER_WINDOW_SHARE, 1.0), 2)),
+        flower=(window_start, round(min(window_start + flower_share, 1.0), 2)),
     )
 
 
@@ -91,6 +95,7 @@ def calendar_row(region: str, setting: cw.CropParams) -> dict[str, Any]:
 def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> StepResult:
     units = [(str(region), str(crop)) for region, crop in params["units"]]
     cell_prefix: Mapping[str, str] = params["region_cell_prefix"]
+    flower_share = float(params["flower_window_share"])
 
     with section(
         "soil water",
@@ -145,7 +150,7 @@ def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
         ].copy()
         deliveries["crop"] = deliveries["material_id"].map(materials)
         deliveries["doy"] = pd.to_datetime(deliveries["posting_date"]).dt.dayofyear
-        early, late = DELIVERY_QUANTILES
+        early, late = params["delivery_quantiles"]
         early_day = deliveries.groupby("crop")["doy"].quantile(early)
         late_day = deliveries.groupby("crop")["doy"].quantile(late)
         lead_days = params["ready_window_lead_days"]
@@ -172,7 +177,7 @@ def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
             )
             for gdd_maturity, sow_temp_c, window_start, window_span in grid:
                 setting = calendar_setting(
-                    crop, gdd_maturity, sow_temp_c, window_start, window_span
+                    crop, gdd_maturity, sow_temp_c, window_start, window_span, flower_share
                 )
                 features = cw.crop_features(  # pyright: ignore[reportUnknownMemberType]
                     keys, arrays, stress, saturated, setting, series[(region, crop)]
@@ -231,6 +236,7 @@ def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
                 pick["sow_temp_c"],
                 float(pick["win_start"]),
                 float(pick["win_span"]),
+                flower_share,
             )
             calendars.append(calendar_row(region, setting))
             choices.append(

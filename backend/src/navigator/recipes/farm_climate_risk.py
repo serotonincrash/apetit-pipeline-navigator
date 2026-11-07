@@ -123,6 +123,8 @@ RECIPE = Recipe(
                     "M113": "spinach",
                 },
                 "ready_window_lead_days": 21,
+                "delivery_quantiles": [0.05, 0.95],
+                "flower_window_share": 0.25,
                 "error_tolerance": 0.05,
                 "weak_identification_farm_years": 300,
             },

@@ -1,9 +1,7 @@
 """Golden tests for steps 5 and 6: the tuned crop calendar and the weather features reproduce
 `notebooks/c1_weather_features.ipynb`."""
 
-import io
 import json
-import os
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +9,7 @@ import pandas as pd
 import pytest
 
 from navigator.recipes.core import Artifact, RunContext
-from navigator.recipes.farm_climate_risk import RAW_FILES, RECIPE
+from navigator.recipes.farm_climate_risk import RECIPE
 from navigator.steps.tune_calendar import tune_calendar
 from navigator.steps.weather_features import weather_features
 from tests.golden.fingerprint import as_read_from_csv, assert_matches
@@ -25,31 +23,17 @@ def recipe_params(name: str) -> dict:
     return dict(next(s for s in RECIPE.steps if s.name == name).params)
 
 
-# Stand-in for the upstream steps until the `clean_tables` fixture from steps 1 to 4 lands in
-# conftest. Swap this fixture for `clean_tables` then; the tests below only need the five tables.
 @pytest.fixture(scope="session")
-def upstream(ctx: RunContext) -> dict[str, Artifact]:
-    outputs = Path(os.environ.get("NOTEBOOK_OUTPUTS", "../notebooks/outputs")).resolve()
-    if not (outputs / "c1_training_table.csv").exists():
-        pytest.skip(f"notebook outputs not found at {outputs}; set NOTEBOOK_OUTPUTS")
-
-    def raw(name: str) -> Artifact:
-        path = str(RAW_FILES[name]["path"])
-        content = io.BytesIO(ctx.sources[path].content)
-        frame = pd.read_parquet(content) if path.endswith(".parquet") else pd.read_csv(content)
-        return Artifact(name, "raw", frame)
-
-    def notebook_output(name: str, file: str) -> Artifact:
-        return Artifact(name, "feature", pd.read_csv(outputs / file))
-
-    tables = [
-        raw("weather_daily"),
-        raw("erp_purchase_lines"),
-        raw("c1_template"),
-        notebook_output("training_table", "c1_training_table.csv"),
-        notebook_output("parcel_year_contract", "parcel_year_contract.csv"),
-    ]
-    return {table.name: table for table in tables}
+def upstream(clean_tables: dict[str, Artifact]) -> dict[str, Artifact]:
+    """The tables steps 5 and 6 read, as steps 1 to 4 wrote them."""
+    names = (
+        "weather_daily",
+        "erp_purchase_lines",
+        "c1_template",
+        "training_table",
+        "parcel_year_contract",
+    )
+    return {name: clean_tables[name] for name in names}
 
 
 @pytest.fixture(scope="session")
