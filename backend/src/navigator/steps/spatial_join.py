@@ -5,7 +5,15 @@ notebooks/c1_clean.ipynb sections 7 to 10.
 import numpy as np
 import pandas as pd
 
-from navigator.recipes.core import Artifact, Params, RunContext, StepResult, section, step
+from navigator.recipes.core import (
+    PROPOSALS_INPUT,
+    Artifact,
+    Params,
+    RunContext,
+    StepResult,
+    section,
+    step,
+)
 
 EARTH_RADIUS_KM = 6371.0
 KM_PER_DEGREE_LATITUDE = 111.0
@@ -59,8 +67,34 @@ def match_parcels_to_cells(
     return features
 
 
+def waiting_for_review(
+    proposals: pd.DataFrame, record_keys: pd.Series, fields: list[str], label: str
+) -> str:
+    """A sentence naming the open fixes to these fields of these records, or an empty string.
+
+    A check that fails because known errors have not been reviewed yet says so, so the person
+    running the recipe knows to review them and run again.
+    """
+    waiting = proposals[
+        proposals["action"].eq("fix")
+        & proposals["status"].eq("open")
+        & proposals["field"].isin(fields)
+        & proposals["record_key"].isin(record_keys)
+    ]
+    if waiting.empty:
+        return ""
+    rules = " and ".join(sorted(waiting["rule_id"].unique()))
+    count = len(waiting)
+    noun = "fix" if count == 1 else "fixes"
+    verb = "is" if count == 1 else "are"
+    return (
+        f" {count} {label} {noun} from rule {rules} {verb} waiting for review. Review them in "
+        "Data review, then run the recipe again."
+    )
+
+
 def check_farms_near_parcels(
-    registry_clean: pd.DataFrame, parcels: pd.DataFrame, max_km: float
+    registry_clean: pd.DataFrame, parcels: pd.DataFrame, proposals: pd.DataFrame, max_km: float
 ) -> None:
     """Stops when a farm's registered location is far from its own parcels."""
     centroid = parcels.groupby("farm_id")[["lat", "lon"]].median()
@@ -68,11 +102,17 @@ def check_farms_near_parcels(
     north = farms["lat"] - farms["lat_p"]
     east = (farms["lon"] - farms["lon_p"]) * np.cos(np.radians(farms["lat"]))
     distance_km = KM_PER_DEGREE_LATITUDE * pd.Series(np.hypot(north, east), index=farms.index)
-    if distance_km.max() >= max_km:
-        raise ValueError(
-            f"Farm {distance_km.idxmax()} is {distance_km.max():.1f} km from its own parcels, "
-            f"above the {max_km} km limit. Check its latitude and longitude in the farm registry."
-        )
+    too_far = distance_km[distance_km >= max_km]
+    if too_far.empty:
+        return
+    keys = pd.Series("farm:" + too_far.index.astype(str))
+    reason = waiting_for_review(proposals, keys, ["lat", "lon"], "coordinate") or (
+        " Check their latitude and longitude in the farm registry."
+    )
+    raise ValueError(
+        f"{len(too_far)} farms are more than {max_km:g} km from their own parcels; the farthest, "
+        f"{too_far.idxmax()}, is {too_far.max():,.0f} km away.{reason}"
+    )
 
 
 def build_parcel_years(
@@ -188,7 +228,7 @@ def build_training_table(
 
 
 def check_training_table(
-    training: pd.DataFrame, expected_rows: int, max_yield_ratio: float
+    training: pd.DataFrame, proposals: pd.DataFrame, expected_rows: int, max_yield_ratio: float
 ) -> None:
     if len(training) != expected_rows:
         raise ValueError(
@@ -202,10 +242,12 @@ def check_training_table(
     if not (training["yield_t_ha"] > 0).all():
         raise ValueError("Some training rows have no yield above zero.")
     median = training.groupby(["region", "crop", "year"])["yield_t_ha"].transform("median")
-    if (training["yield_t_ha"] / median).max() >= max_yield_ratio:
+    too_high = training[training["yield_t_ha"] / median >= max_yield_ratio]
+    if len(too_high):
+        reason = waiting_for_review(proposals, too_high["record_key"], ["yield_t_ha"], "yield")
         raise ValueError(
-            f"Some yields are still at least {max_yield_ratio:g} times the median for their "
-            "region, crop and year after cleaning."
+            f"{len(too_high)} yields are still at least {max_yield_ratio:g} times the median for "
+            f"their region, crop and year after cleaning.{reason}"
         )
 
 
@@ -223,6 +265,7 @@ def spatial_join(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -
     registry_clean = inputs["farm_registry_clean"].frame
     survey_clean = inputs["farm_survey_clean"].frame
     foodhills_clean = inputs["foodhills_clean"].frame
+    proposals = inputs[PROPOSALS_INPUT].frame
 
     with section(
         "match weather cells",
@@ -238,7 +281,9 @@ def spatial_join(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -
         "Confirms that every farm lies within the farm-to-parcels distance limit of its own "
         "parcels, once swapped coordinates are fixed.",
     ):
-        check_farms_near_parcels(registry_clean, parcels, params["max_farm_to_parcels_km"])
+        check_farms_near_parcels(
+            registry_clean, parcels, proposals, params["max_farm_to_parcels_km"]
+        )
 
     with section(
         "build parcel years",
@@ -271,7 +316,10 @@ def spatial_join(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -
         "yield, or tenfold yields left after cleaning.",
     ):
         check_training_table(
-            training, len(survey_clean) + len(foodhills_clean), params["max_yield_ratio_to_median"]
+            training,
+            proposals,
+            len(survey_clean) + len(foodhills_clean),
+            params["max_yield_ratio_to_median"],
         )
 
     return StepResult(

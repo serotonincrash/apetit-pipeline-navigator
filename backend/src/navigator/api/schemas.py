@@ -144,6 +144,7 @@ class StepFinishedPayload(ApiModel):
     annotation: str
     status: StepStatus
     seconds: float
+    error: str | None = Field(default=None, description="Why the step stopped, in plain words.")
 
 
 class SectionStartedPayload(ApiModel):
@@ -167,6 +168,7 @@ class ProposalsCreatedPayload(ApiModel):
 class RunFinishedPayload(ApiModel):
     status: RunStatus
     result_set_id: str | None
+    error: str | None = Field(default=None, description="Why the run stopped, in plain words.")
 
 
 class RunEventFields(ApiModel):

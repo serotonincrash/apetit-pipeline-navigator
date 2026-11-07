@@ -35,7 +35,7 @@ How the two steps work:
 
 - Data review: rules and agents write proposals. Each has the record, the old and new value, the evidence and a plain-language explanation. A fix is `open` until a person decides; the latest decision makes it `approved` (an edit counts as approved, with the edited value) or `rejected`. A flag stays `flag` unless a person rejects it. The cleaned tables are rebuilt from the raw data plus approved fixes only.
 - No automatic approval. Every fix needs a person's decision. To save time, a reviewer can approve or reject all of one rule's proposals at once; that records one decision per proposal.
-- Decisions carry over between runs. A decision points at the proposal's fixed key (rule, record key and field). The next run's check step writes the same proposal again, and it arrives with its decision already applied. A run never overwrites a person's decision.
+- Decisions carry over between runs. A decision points at the proposal's fixed key (rule, record key and field). The next run's check step writes the same proposal again, and it arrives with its decision already applied. A run never overwrites a person's decision. On fresh data nothing is reviewed yet, so the first run stops at step 4: a check that fails because of known errors names the fixes waiting for review (for example "6 coordinate fixes from rule R5 are waiting for review"). The flow is run, review, run again.
 - Results review: a run's results start as a `draft`. Approval freezes them under the run's id, and publishing makes the report visible. A later run never changes a published result; it creates a new one.
 - Only the two specialists make decisions, so the persona switcher offers those two. The sourcing manager comments on action options; management reads the published report.
 
@@ -708,8 +708,8 @@ The brief asks for a working AI solution and documentation with usage instructio
 Demo script:
 
 1. The problem, in one slide: Apetit's climate data is scattered, and farming risk is priced nowhere.
-2. Start a run of recipe 1 from the raw package and show its steps completing.
-3. Data review: open an agent proposal, read its evidence and explanation, approve it. Reject another and say why.
+2. Start a run of recipe 1 from the raw package. It stops at step 4 and names the fixes waiting for review.
+3. Data review: open an agent proposal, read its evidence and explanation, approve it. Reject another and say why. Run again and show every step finish.
 4. Risk view: cost per year for each crop and region under the three climate scenarios. Click one figure and follow it down to farms, weather cells and the raw survey rows, including the correction just approved.
 5. Actions: compare irrigation, relocation, earlier sowing and heat-tolerant pea on cost and risk removed, and show the Foodhills supply insight.
 6. Report: open the interactive report, expand a number to its lineage, approve it and publish.

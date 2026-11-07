@@ -73,6 +73,7 @@ RECIPE = Recipe(
                 "farm_survey_clean",
                 "foodhills_clean",
                 "c1_template",
+                PROPOSALS_INPUT,
             ),
             params={
                 "contract_crops": CONTRACT_CROPS,

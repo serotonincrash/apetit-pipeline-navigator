@@ -4071,12 +4071,25 @@
               }
             ],
             "title": "Result Set Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Why the run stopped, in plain words."
           }
         },
         "type": "object",
         "required": [
           "status",
-          "result_set_id"
+          "result_set_id",
+          "error"
         ],
         "title": "RunFinishedPayload"
       },
@@ -4468,6 +4481,18 @@
           "seconds": {
             "type": "number",
             "title": "Seconds"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error",
+            "description": "Why the step stopped, in plain words."
           }
         },
         "type": "object",
@@ -4475,7 +4500,8 @@
           "step",
           "annotation",
           "status",
-          "seconds"
+          "seconds",
+          "error"
         ],
         "title": "StepFinishedPayload"
       },

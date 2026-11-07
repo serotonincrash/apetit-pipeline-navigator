@@ -3,9 +3,13 @@ the cleaned and joined tables."""
 
 import json
 
+import numpy as np
 import pytest
 
-from navigator.recipes.core import Artifact, StepResult
+from navigator.recipes.core import PROPOSALS_INPUT, Artifact, RunContext, StepResult
+from navigator.steps.apply_approved import apply_approved
+from navigator.steps.spatial_join import spatial_join
+from tests.golden.conftest import proposals_input, run_step
 from tests.golden.fingerprint import as_read_from_csv, assert_matches
 
 pytestmark = pytest.mark.golden
@@ -85,3 +89,35 @@ def test_proposals_match_corrections_log(farm_checks: StepResult) -> None:
 )
 def test_table_matches_notebook(clean_tables: dict[str, Artifact], name: str) -> None:
     assert_matches(name, as_read_from_csv(clean_tables[name].frame))
+
+
+def test_unreviewed_fixes_stop_step_4_with_a_clear_message(
+    ctx: RunContext, raw_tables: dict[str, Artifact], farm_checks: StepResult
+) -> None:
+    """On fresh data nobody has reviewed anything, so step 4 stops and names the open fixes."""
+    tables = dict(raw_tables)
+    open_proposals = proposals_input(farm_checks)
+    open_proposals["status"] = np.where(open_proposals["action"].eq("flag"), "flag", "open")
+    tables[PROPOSALS_INPUT] = Artifact(PROPOSALS_INPUT, "result", open_proposals)
+    tables.update(
+        {t.name: t for t in run_step(ctx, apply_approved, "apply_approved", tables).tables}
+    )
+    with pytest.raises(ValueError, match="6 coordinate fixes from rule R5 are waiting for review"):
+        run_step(ctx, spatial_join, "spatial_join", tables)
+
+
+def test_unreviewed_yield_fixes_are_named_once_coordinates_are_fixed(
+    ctx: RunContext, raw_tables: dict[str, Artifact], farm_checks: StepResult
+) -> None:
+    tables = dict(raw_tables)
+    proposals = proposals_input(farm_checks)
+    approved = proposals["rule_id"].eq("R5")
+    proposals["status"] = np.where(
+        proposals["action"].eq("flag"), "flag", np.where(approved, "approved", "open")
+    )
+    tables[PROPOSALS_INPUT] = Artifact(PROPOSALS_INPUT, "result", proposals)
+    tables.update(
+        {t.name: t for t in run_step(ctx, apply_approved, "apply_approved", tables).tables}
+    )
+    with pytest.raises(ValueError, match="18 yield fixes from rule R1 are waiting for review"):
+        run_step(ctx, spatial_join, "spatial_join", tables)

@@ -7,7 +7,6 @@ app can follow a run live.
 """
 
 import time
-import traceback
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -200,7 +199,7 @@ class RunExecution:
             with session_scope() as session:
                 step_run = session.get_one(m.StepRun, step_run_id)
                 step_run.status = "failed"
-                step_run.error = traceback.format_exc()
+                step_run.error = failure_message(error)
                 step_run.seconds = seconds
                 step_run.finished_at = _now()
             emit(
@@ -211,10 +210,11 @@ class RunExecution:
                     "annotation": info.summary,
                     "status": "failed",
                     "seconds": seconds,
+                    "error": failure_message(error),
                 },
                 spec.name,
             )
-            raise StepFailed(spec.name) from error
+            raise StepFailed(spec.name, failure_message(error)) from error
 
         seconds = round(time.monotonic() - started, 3)
         with session_scope() as session:
@@ -347,9 +347,17 @@ class RunExecution:
 
 
 class StepFailed(Exception):
-    def __init__(self, step: str) -> None:
-        super().__init__(f"step {step} failed")
+    def __init__(self, step: str, message: str) -> None:
+        super().__init__(message)
         self.step = step
+
+
+def failure_message(error: Exception) -> str:
+    """What a person reads when a step stops. A step's own checks raise ValueError with a plain
+    message; anything else is unexpected, so its type is named for the data specialist."""
+    if isinstance(error, ValueError):
+        return str(error)
+    return f"Unexpected {type(error).__name__}: {error}"
 
 
 def _text(value: Any) -> Any:
@@ -364,11 +372,15 @@ def execute_run(run_id: str) -> None:
     try:
         RunExecution(run_id).execute()
     except Exception as error:
-        log.exception("run failed", extra={"run_id": run_id})
+        log.exception("run failed", extra={"run_id": run_id})  # the traceback stays in the logs
         with session_scope() as session:
             run = session.get_one(m.Run, run_id)
             run.status = "failed"
             run.error = str(error)
             run.finished_at = _now()
         emit(run_id, "run.status", {"status": "failed"})
-        emit(run_id, "run.finished", {"status": "failed", "result_set_id": None})
+        emit(
+            run_id,
+            "run.finished",
+            {"status": "failed", "result_set_id": None, "error": str(error)},
+        )
