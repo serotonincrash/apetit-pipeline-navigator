@@ -207,6 +207,7 @@ class Metric(Base):
     high: Mapped[float | None] = mapped_column(Float)
     region: Mapped[str | None] = mapped_column(String)
     crop: Mapped[str | None] = mapped_column(String)
+    site: Mapped[str | None] = mapped_column(String)
     scenario: Mapped[str | None] = mapped_column(String)
     ngfs_scenario: Mapped[str | None] = mapped_column(String)
     period: Mapped[str | None] = mapped_column(String)

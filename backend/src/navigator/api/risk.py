@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from navigator.api import schemas
 from navigator.api.dependencies import SessionDep
 from navigator.api.errors import NOT_FOUND, invalid, not_found
-from navigator.api.review import proposal_out
+from navigator.api.review import DEFAULT_RECIPE, proposal_out
 from navigator.api.runs import artifact_out, row_filter
 from navigator.db import models as m
 from navigator.db.decisions import latest_decisions, proposal_status
@@ -22,12 +22,22 @@ router = APIRouter(prefix="/api", tags=["risk"])
 def list_result_sets(
     session: SessionDep,
     run_id: str | None = None,
+    recipe_id: Annotated[
+        str | None,
+        Query(description="Defaults to farm_climate_risk when no run id is given."),
+    ] = None,
     result_set_status: Annotated[schemas.ResultSetStatus | None, Query(alias="status")] = None,
 ) -> list[schemas.ResultSet]:
-    """Result sets, newest first, optionally those of one run."""
+    """Result sets, newest first, optionally those of one run or one recipe."""
     query = select(m.ResultSet)
     if run_id:
         query = query.where(m.ResultSet.run_id == run_id)
+    elif recipe_id is None:
+        recipe_id = DEFAULT_RECIPE
+    if recipe_id:
+        query = query.join(m.Run, m.Run.run_id == m.ResultSet.run_id).where(
+            m.Run.recipe_id == recipe_id
+        )
     if result_set_status:
         query = query.where(m.ResultSet.status == result_set_status)
     rows = session.scalars(
@@ -43,12 +53,14 @@ def list_metrics(
     name: str | None = None,
     region: str | None = None,
     crop: str | None = None,
+    site: str | None = None,
     scenario: str | None = None,
     ngfs_scenario: str | None = None,
+    period: str | None = None,
     limit: Annotated[int, Query(ge=1, le=5000)] = 1000,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> schemas.MetricList:
-    """Metrics of a result set, filtered by region, crop, climate and NGFS scenario."""
+    """Metrics of a result set, filtered by region, crop, site, scenarios and period."""
     if session.get(m.ResultSet, result_set_id) is None:
         raise not_found("results", result_set_id)
     query = select(m.Metric).where(m.Metric.result_set_id == result_set_id)
@@ -56,8 +68,10 @@ def list_metrics(
         m.Metric.name: name,
         m.Metric.region: region,
         m.Metric.crop: crop,
+        m.Metric.site: site,
         m.Metric.scenario: scenario,
         m.Metric.ngfs_scenario: ngfs_scenario,
+        m.Metric.period: period,
     }.items():
         if value:
             query = query.where(column == value)
@@ -67,6 +81,7 @@ def list_metrics(
             m.Metric.name,
             m.Metric.region,
             m.Metric.crop,
+            m.Metric.site,
             m.Metric.scenario,
             m.Metric.ngfs_scenario,
             m.Metric.period,

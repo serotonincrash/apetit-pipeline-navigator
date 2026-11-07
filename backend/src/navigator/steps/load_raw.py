@@ -1,4 +1,4 @@
-"""Step 1: load_raw. Reads the package files the recipe names into raw tables, unchanged.
+"""load_raw: reads the package files a recipe names into raw tables, unchanged.
 
 The seed job records each source file and its checksum, so this step records nothing else.
 """
@@ -23,9 +23,8 @@ def read_table(path: str, content: bytes, read_options: Mapping[str, Any]) -> pd
     "load_raw",
     kind="load",
     summary=(
-        "Reads the farm, parcel, weather, climate change, price, scenario and known-issue files "
-        "the recipe uses from the challenge package, exactly as delivered, and keeps each as a raw "
-        "table that later steps never change."
+        "Reads the files the recipe names from the challenge package, exactly as delivered, and "
+        "keeps each as a raw table that later steps never change."
     ),
 )
 def load_raw(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> StepResult:

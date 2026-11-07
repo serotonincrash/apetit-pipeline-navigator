@@ -98,7 +98,10 @@ def test_a_what_if_run_is_refused_for_now(client: TestClient) -> None:
 @pytest.mark.parametrize(
     ("body", "message"),
     [
-        ({"recipe_id": "no_such_recipe"}, "No recipe no_such_recipe. Recipes: farm_climate_risk."),
+        (
+            {"recipe_id": "no_such_recipe"},
+            "No recipe no_such_recipe. Recipes: energy_meter_check, farm_climate_risk.",
+        ),
         (
             {"recipe_id": "farm_climate_risk", "step_params": {"no_step": {}}},
             "Recipe farm_climate_risk has no step no_step.",

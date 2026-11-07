@@ -67,6 +67,7 @@ METRIC_COLUMNS = [
     "high",
     "region",
     "crop",
+    "site",
     "scenario",
     "ngfs_scenario",
     "period",

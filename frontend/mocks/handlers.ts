@@ -609,6 +609,8 @@ export const getListProposalsUrl = (params?: ListProposalsParams,) => {
 
 /**
  * One run's proposals, filtered by rule, table and status, ordered by rule and record.
+ *
+ * Without a run id, the latest run of the recipe (farm_climate_risk when none is given).
  * @summary List Proposals
  */
 export const listProposals = async (params?: ListProposalsParams, options?: RequestInit): Promise<listProposalsResponse> => {
@@ -1008,7 +1010,7 @@ export const getListResultSetsUrl = (params?: ListResultSetsParams,) => {
 }
 
 /**
- * Result sets, newest first, optionally those of one run.
+ * Result sets, newest first, optionally those of one run or one recipe.
  * @summary List Result Sets
  */
 export const listResultSets = async (params?: ListResultSetsParams, options?: RequestInit): Promise<listResultSetsResponse> => {
@@ -1072,7 +1074,7 @@ export const getListMetricsUrl = (resultSetId: string,
 }
 
 /**
- * Metrics of a result set, filtered by region, crop, climate and NGFS scenario.
+ * Metrics of a result set, filtered by region, crop, site, scenarios and period.
  * @summary List Metrics
  */
 export const listMetrics = async (resultSetId: string,

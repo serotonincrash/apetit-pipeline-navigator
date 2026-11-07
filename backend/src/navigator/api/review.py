@@ -24,12 +24,20 @@ from navigator.db.decisions import (
 
 router = APIRouter(prefix="/api", tags=["review"])
 
+# Screens that ask for no recipe show the first recipe, so a run of another recipe never hides it.
+DEFAULT_RECIPE = "farm_climate_risk"
+
 
 @router.get("/proposals", operation_id="listProposals")
 def list_proposals(
     session: SessionDep,
     run_id: Annotated[
-        str | None, Query(description="Defaults to the latest run that wrote proposals.")
+        str | None,
+        Query(description="Defaults to the latest run of the recipe that wrote proposals."),
+    ] = None,
+    recipe_id: Annotated[
+        str | None,
+        Query(description="Defaults to farm_climate_risk when no run id is given."),
     ] = None,
     rule_id: str | None = None,
     table: str | None = None,
@@ -37,11 +45,15 @@ def list_proposals(
     limit: Annotated[int, Query(ge=1, le=2000)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> schemas.ProposalList:
-    """One run's proposals, filtered by rule, table and status, ordered by rule and record."""
+    """One run's proposals, filtered by rule, table and status, ordered by rule and record.
+
+    Without a run id, the latest run of the recipe (farm_climate_risk when none is given).
+    """
     if run_id is None:
         run_id = session.scalar(
             select(m.Proposal.run_id)
             .join(m.Run, m.Run.run_id == m.Proposal.run_id)
+            .where(m.Run.recipe_id == (recipe_id or DEFAULT_RECIPE))
             .order_by(m.Run.created_at.desc(), m.Run.run_id.desc())
             .limit(1)
         )

@@ -577,7 +577,7 @@
           "review"
         ],
         "summary": "List Proposals",
-        "description": "One run's proposals, filtered by rule, table and status, ordered by rule and record.",
+        "description": "One run's proposals, filtered by rule, table and status, ordered by rule and record.\n\nWithout a run id, the latest run of the recipe (farm_climate_risk when none is given).",
         "operationId": "listProposals",
         "parameters": [
           {
@@ -593,10 +593,28 @@
                   "type": "null"
                 }
               ],
-              "description": "Defaults to the latest run that wrote proposals.",
+              "description": "Defaults to the latest run of the recipe that wrote proposals.",
               "title": "Run Id"
             },
-            "description": "Defaults to the latest run that wrote proposals."
+            "description": "Defaults to the latest run of the recipe that wrote proposals."
+          },
+          {
+            "name": "recipe_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Defaults to farm_climate_risk when no run id is given.",
+              "title": "Recipe Id"
+            },
+            "description": "Defaults to farm_climate_risk when no run id is given."
           },
           {
             "name": "rule_id",
@@ -1083,7 +1101,7 @@
           "risk"
         ],
         "summary": "List Result Sets",
-        "description": "Result sets, newest first, optionally those of one run.",
+        "description": "Result sets, newest first, optionally those of one run or one recipe.",
         "operationId": "listResultSets",
         "parameters": [
           {
@@ -1101,6 +1119,24 @@
               ],
               "title": "Run Id"
             }
+          },
+          {
+            "name": "recipe_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Defaults to farm_climate_risk when no run id is given.",
+              "title": "Recipe Id"
+            },
+            "description": "Defaults to farm_climate_risk when no run id is given."
           },
           {
             "name": "status",
@@ -1160,7 +1196,7 @@
           "risk"
         ],
         "summary": "List Metrics",
-        "description": "Metrics of a result set, filtered by region, crop, climate and NGFS scenario.",
+        "description": "Metrics of a result set, filtered by region, crop, site, scenarios and period.",
         "operationId": "listMetrics",
         "parameters": [
           {
@@ -1221,6 +1257,22 @@
             }
           },
           {
+            "name": "site",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Site"
+            }
+          },
+          {
             "name": "scenario",
             "in": "query",
             "required": false,
@@ -1250,6 +1302,22 @@
                 }
               ],
               "title": "Ngfs Scenario"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period"
             }
           },
           {
@@ -3021,6 +3089,17 @@
             ],
             "title": "Crop"
           },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          },
           "scenario": {
             "anyOf": [
               {
@@ -3084,6 +3163,7 @@
           "high",
           "region",
           "crop",
+          "site",
           "scenario",
           "ngfs_scenario",
           "period",

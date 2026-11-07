@@ -7,8 +7,10 @@
 import type { ListProposalsStatus } from './listProposalsStatus';
 
 export type ListProposalsParams = {
-  /** Defaults to the latest run that wrote proposals. */
+  /** Defaults to the latest run of the recipe that wrote proposals. */
   run_id?: string | null;
+  /** Defaults to farm_climate_risk when no run id is given. */
+  recipe_id?: string | null;
   rule_id?: string | null;
   table?: string | null;
   status?: ListProposalsStatus;

@@ -8,5 +8,7 @@ import type { ListResultSetsStatus } from './listResultSetsStatus';
 
 export type ListResultSetsParams = {
   run_id?: string | null;
+  /** Defaults to farm_climate_risk when no run id is given. */
+  recipe_id?: string | null;
   status?: ListResultSetsStatus;
 };

@@ -6,6 +6,7 @@ record and values is rejected here, and the rejection is reported in the step's 
 """
 
 import math
+from collections.abc import Mapping
 from typing import Any
 
 import pandas as pd
@@ -28,15 +29,17 @@ from navigator.steps.check_farm_data import rule_descriptions
 
 RULE_ID = "AG1"
 # apply_approved writes approved fixes to these tables as numbers.
-APPLIED_TABLES = ("farm_survey", "farm_registry")
+APPLIED_TABLES = ("farm_survey", "farm_registry", "energy_meter_readings")
 REJECTION_COLUMNS = ["table", "record_key", "field", "reason"]
 
 
-def rule_library(rules: pd.DataFrame, validation: pd.DataFrame, params: Params) -> str:
+def rule_library(
+    rules: pd.DataFrame, validation: pd.DataFrame, descriptions: Mapping[str, str]
+) -> str:
     """Each rule in plain words, with the field it checks and its score on the answer key."""
     scores = {str(row["rule_id"]): row for row in validation.to_dict("records")}
     lines: list[str] = []
-    for rule_id, description in rule_descriptions(params).items():
+    for rule_id, description in descriptions.items():
         own = rules[rules["rule_id"].eq(rule_id)]
         where = f"{own['table'].iat[0]}.{own['field'].iat[0]}" if len(own) else "no table"
         score = ""
@@ -116,7 +119,14 @@ def propose_fixes(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
     raw = {name: inputs[name].frame for name in params["tables"]}
     by_rules = inputs[PROPOSALS_INPUT].frame
     labels = inputs["dev_issue_labels"].frame
-    library = rule_library(by_rules, inputs["rule_validation"].frame, params["rule_params"])
+    validation = inputs["rule_validation"].frame
+    # A recipe whose check step describes its own rules puts the text in the validation table.
+    descriptions = (
+        dict(zip(validation["rule_id"], validation["description"], strict=True))
+        if "description" in validation.columns
+        else rule_descriptions(params["rule_params"])
+    )
+    library = rule_library(by_rules, validation, descriptions)
 
     answers: dict[str, LlmResult[FixProposals]] = {}
     with section(

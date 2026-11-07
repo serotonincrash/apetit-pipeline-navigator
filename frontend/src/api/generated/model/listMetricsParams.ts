@@ -9,8 +9,10 @@ export type ListMetricsParams = {
   name?: string | null;
   region?: string | null;
   crop?: string | null;
+  site?: string | null;
   scenario?: string | null;
   ngfs_scenario?: string | null;
+  period?: string | null;
   /**
    * @minimum 1
    * @maximum 5000

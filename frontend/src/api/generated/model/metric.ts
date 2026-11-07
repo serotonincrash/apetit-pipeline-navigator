@@ -15,6 +15,7 @@ export interface Metric {
   high: number | null;
   region: string | null;
   crop: string | null;
+  site: string | null;
   scenario: string | null;
   ngfs_scenario: string | null;
   period: string | null;

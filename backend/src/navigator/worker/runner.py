@@ -182,7 +182,7 @@ def approved_actions(session: Session) -> pd.DataFrame:
 
 
 METRIC_TOKEN = re.compile(r"\{\{metric:([^}]+)\}\}")
-DIMENSIONS = ["region", "crop", "scenario", "ngfs_scenario", "period", "action_id"]
+DIMENSIONS = ["region", "crop", "site", "scenario", "ngfs_scenario", "period", "action_id"]
 
 
 def _missing(value: Any) -> bool:

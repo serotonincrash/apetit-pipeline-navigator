@@ -335,6 +335,7 @@ class Metric(ApiModel):
     high: float | None
     region: str | None
     crop: str | None
+    site: str | None
     scenario: str | None
     ngfs_scenario: str | None
     period: str | None

@@ -31,6 +31,7 @@ RECORD_KEY_FORMATS = {
     "parcels": "parcel:{parcel_id}",
     "crop_history": "crop_history:{parcel_id}:{year}",
     "erp_purchase_lines": "erp:{doc_no}:{line_no}",
+    "energy_meter_readings": "energy:{site_id}:{year}-{month:02d}:{carrier}",
 }
 SAMPLE_ROWS = 8
 EXTREME_ROWS = 3
@@ -110,58 +111,92 @@ def propose(llm: Llm, table: str, prompt: str) -> LlmResult[FixProposals]:
     return llm.call(AGENT, PROMPT_VERSION, prompt, FixProposals, item=table, check=check_answer)
 
 
-# The one finding the fake returns. Line 10 of purchase document 4500006594 is priced at about a
-# thousand times the usual price per kilogram of chickpeas, so its quantity was keyed in tonnes
-# under the unit kilogram. The answer key covers 2023 and 2024 only; this line is from 2025.
-FAKE_FINDING: dict[str, Any] = {
-    "table": "erp_purchase_lines",
-    "record_key": "erp:4500006594:10",
-    "field": "quantity",
-    "issue_type": "unit_error",
-    "action": "fix",
-    "old_value": "6.7476",
-    "new_value": "6747.6",
-    "evidence": {
-        "summary": "The line is priced at about a thousand times the usual price per kilogram.",
-        "record_keys": ["erp:4500006594:10"],
-        "query": {
-            "kind": "compute",
-            "table": "erp_purchase_lines",
-            "group_by": ["material_id"],
-            "compute": {
-                "median_quantity": {"op": "median", "column": "quantity"},
-                "unit_price": {"op": "divide", "left": "net_amount", "right": "quantity"},
-                "typical_unit_price": {"op": "median", "column": "unit_price"},
-                "price_ratio": {
-                    "op": "divide",
-                    "left": "unit_price",
-                    "right": "typical_unit_price",
+# The findings the fake returns, one per raw table that has any. Line 10 of purchase document
+# 4500006594 is priced at about a thousand times the usual price per kilogram of chickpeas, so its
+# quantity was keyed in tonnes under the unit kilogram. The answer key covers 2023 and 2024 only;
+# this line is from 2025. The Bjuv electricity meter reads zero until December 2025, the month the
+# plant joined the group.
+FAKE_FINDINGS: dict[str, dict[str, Any]] = {
+    "erp_purchase_lines": {
+        "table": "erp_purchase_lines",
+        "record_key": "erp:4500006594:10",
+        "field": "quantity",
+        "issue_type": "unit_error",
+        "action": "fix",
+        "old_value": "6.7476",
+        "new_value": "6747.6",
+        "evidence": {
+            "summary": "The line is priced at about a thousand times the usual price per kilogram.",
+            "record_keys": ["erp:4500006594:10"],
+            "query": {
+                "kind": "compute",
+                "table": "erp_purchase_lines",
+                "group_by": ["material_id"],
+                "compute": {
+                    "median_quantity": {"op": "median", "column": "quantity"},
+                    "unit_price": {"op": "divide", "left": "net_amount", "right": "quantity"},
+                    "typical_unit_price": {"op": "median", "column": "unit_price"},
+                    "price_ratio": {
+                        "op": "divide",
+                        "left": "unit_price",
+                        "right": "typical_unit_price",
+                    },
                 },
+                "where": {"doc_no": 4500006594, "line_no": 10},
             },
-            "where": {"doc_no": 4500006594, "line_no": 10},
+            "values": {
+                "quantity": 6.7476,
+                "median_quantity": 3001.0,
+                "unit_price": 1218.4139545912622,
+                "typical_unit_price": 1.2582156658193628,
+                "price_ratio": 968.3665429470063,
+            },
         },
-        "values": {
-            "quantity": 6.7476,
-            "median_quantity": 3001.0,
-            "unit_price": 1218.4139545912622,
-            "typical_unit_price": 1.2582156658193628,
-            "price_ratio": 968.3665429470063,
-        },
+        "explanation": (
+            "Line erp:4500006594:10 holds {{ev:quantity}} kilograms of chickpeas, against a usual "
+            "{{ev:median_quantity}}, and is priced at {{ev:price_ratio}} times the usual price per "
+            "kilogram. The quantity was likely keyed in tonnes. The fix would multiply it by one "
+            "thousand. If a person rejects it, the line keeps its quantity."
+        ),
     },
-    "explanation": (
-        "Line erp:4500006594:10 holds {{ev:quantity}} kilograms of chickpeas, against a usual "
-        "{{ev:median_quantity}}, and is priced at {{ev:price_ratio}} times the usual price per "
-        "kilogram. The quantity was likely keyed in tonnes. The fix would multiply it by one "
-        "thousand. If a person rejects it, the line keeps its quantity."
-    ),
+    "energy_meter_readings": {
+        "table": "energy_meter_readings",
+        "record_key": "energy:S-BJU:2025-01:electricity",
+        "field": "value",
+        "issue_type": "zero_reading",
+        "action": "flag",
+        "old_value": "0.0",
+        "new_value": "",
+        "evidence": {
+            "summary": "The meter reads zero until December, then a full month of use.",
+            "record_keys": ["energy:S-BJU:2025-01:electricity"],
+            "query": {
+                "kind": "compute",
+                "table": "energy_meter_readings",
+                "group_by": ["site_id", "carrier"],
+                "compute": {
+                    "meter_mean": {"op": "mean", "column": "value"},
+                    "meter_max": {"op": "max", "column": "value"},
+                },
+                "where": {"site_id": "S-BJU", "year": 2025, "month": 1, "carrier": "electricity"},
+            },
+            "values": {"meter_mean": 31.0, "meter_max": 372.0},
+        },
+        "explanation": (
+            "The reading for January 2025 is zero, and the busiest month of the same meter reads "
+            "{{ev:meter_max}} MWh. Zero readings from before the plant joined the group may be "
+            "placeholders. The flag would mark the reading for a check. If a person rejects it, "
+            "the reading stays as delivered."
+        ),
+    },
 }
 
 
 def fake_proposals(prompt: str) -> dict[str, Any]:
-    """The finding for the purchase lines, and nothing for the other tables."""
+    """The finding for the table in the prompt, and nothing for a table without one."""
     found = re.search(r"^Table: (\S+)$", prompt, re.MULTILINE)
-    table = found.group(1) if found else ""
-    return {"proposals": [FAKE_FINDING] if table == FAKE_FINDING["table"] else []}
+    finding = FAKE_FINDINGS.get(found.group(1) if found else "")
+    return {"proposals": [finding] if finding else []}
 
 
 FAKE_RESPONSES[FixProposals] = fake_proposals
