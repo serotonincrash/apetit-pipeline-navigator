@@ -99,8 +99,14 @@ FEATURE_DOCS = {
 
 def load_weather(path) -> tuple[pd.DataFrame, dict]:
     """Read the daily Parquet into dense arrays of shape (n_series, T), Mar-Oct only."""
-    w = pd.read_parquet(path)
-    w = w[w["date"].dt.month.between(3, 10)]
+    return weather_arrays(pd.read_parquet(path))
+
+
+def weather_arrays(
+    weather: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict[str, np.ndarray[tuple[int, int], np.dtype[np.float32]]]]:
+    """Daily weather rows as dense arrays of shape (n_series, T), Mar-Oct only, with their keys."""
+    w = weather[weather["date"].dt.month.between(3, 10)]
     year = w["date"].dt.year
     t = w["date"].dt.dayofyear.values - 60 - w["date"].dt.is_leap_year.values.astype(int)
     keys = (
