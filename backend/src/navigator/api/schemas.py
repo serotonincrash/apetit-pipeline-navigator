@@ -401,6 +401,7 @@ class ActionOption(ApiModel):
     result_set_id: str
     run_id: str = Field(description="The what-if run that priced this option.")
     name: str
+    scenario: str | None = Field(description="The climate scenario the option was priced under.")
     region: str | None
     crop: str | None
     cost_eur_per_yr: float | None

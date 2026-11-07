@@ -38,12 +38,34 @@ def units(spec) -> list[tuple]:
     return [tuple(u) for u in spec["scope"]["units"]]
 
 
-def support(spec: dict, models: dict) -> tuple[bool, str]:
-    """Can the model price this action? Returns (ok, reason)."""
-    t = spec["override"]["type"]
-    if t not in SUPPORTED:
+# The params each override type needs; an action that lacks one is refused, not run.
+REQUIRED_PARAMS = {
+    "relocate_area": ["share"],
+    "set_irrigated": ["value"],
+    "shift_sowing": ["days"],
+    "scale_feature": ["feature", "factor"],
+}
+
+
+def support(spec: dict, models: dict, supported: set[str] = SUPPORTED) -> tuple[bool, str]:
+    """Can the model price this action? Returns (ok, reason). `supported` narrows the override
+    types the caller can run, for callers that cannot rebuild the crop calendar."""
+    override = spec.get("override") or {}
+    t = override.get("type")
+    if t not in supported or t not in REQUIRED_PARAMS:
         return False, f"override type '{t}' is not implemented"
-    for r, c in units(spec):
+    missing = [p for p in REQUIRED_PARAMS[t] if override.get(p) is None]
+    if missing:
+        return False, f"the {t} override has no {', '.join(missing)}"
+    try:
+        scope = units(spec)
+    except (KeyError, TypeError, ValueError):
+        return False, "the scope does not list region and crop pairs"
+    if not scope:
+        return False, "the scope lists no region and crop"
+    for r, c in scope:
+        if f"{r}/{c}" not in models:
+            return False, f"there is no yield model for {r}/{c}"
         beta = models[f"{r}/{c}"]["beta"]
         if t == "set_irrigated" and beta.get("drought_x_irr", 0) == 0:
             return (
@@ -51,8 +73,8 @@ def support(spec: dict, models: dict) -> tuple[bool, str]:
                 f"no irrigation effect in the {r}/{c} model: "
                 "these growers never irrigate in the data",
             )
-        if t == "scale_feature" and beta.get(spec["override"]["feature"], 0) == 0:
-            return False, f"the {r}/{c} model gives {spec['override']['feature']} no effect"
+        if t == "scale_feature" and beta.get(override["feature"], 0) == 0:
+            return False, f"the {r}/{c} model gives {override['feature']} no effect"
     return True, ""
 
 

@@ -36,7 +36,7 @@ def test_queue_a_run_and_read_it_back(client: TestClient) -> None:
     with session_scope() as session:
         stored = session.get_one(m.Run, run["run_id"])
         assert stored.params == {"step_params": overrides}
-        assert stored.version == 2
+        assert stored.version == 3
 
     listed = client.get("/api/runs").json()
     assert listed["total"] == 1

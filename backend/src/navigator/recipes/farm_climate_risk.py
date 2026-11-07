@@ -1,10 +1,11 @@
-"""Recipe 1: farm climate risk, steps 1 to 9.
+"""Recipe 1: farm climate risk, steps 1 to 10.
 
-Each step names the tables it reads. A name is either a table an earlier step returned or
-`proposals`, which the runner fills with this run's proposals and their current status.
+Each step names the tables it reads. A name is either a table an earlier step returned, or one
+the runner fills: `proposals`, this run's proposals and their current status, and `actions`, the
+actions whose latest decision is an approval.
 """
 
-from navigator.recipes.core import PROPOSALS_INPUT, Recipe, StepSpec
+from navigator.recipes.core import ACTIONS_INPUT, PROPOSALS_INPUT, Recipe, StepSpec
 
 CONTRACT_CROPS = ["pea", "turnip_rape", "potato", "carrot", "spinach"]
 
@@ -29,6 +30,10 @@ IMPORT_EF = {
     "FI_SW/turnip_rape": 1.352459,
 }
 
+# Steps 8 and 10 simulate the same seasons with the same random draws, so both read these.
+SIMULATED_OUTCOMES = 50
+SIMULATION_SEED = 2026
+
 # Each raw table: its path in the package and how to read it.
 RAW_FILES = {
     "farm_survey": {"path": "data/03_farming/farm_survey_fi.csv"},
@@ -51,7 +56,7 @@ RAW_FILES = {
 
 RECIPE = Recipe(
     recipe_id="farm_climate_risk",
-    version=2,
+    version=3,
     title="Farm climate risk",
     steps=(
         StepSpec("load_raw", inputs=(), params={"files": RAW_FILES}),
@@ -179,8 +184,8 @@ RECIPE = Recipe(
                 # Contract parcels are the ones declared for this season.
                 "contract_year": 2025,
                 "trend_year": 2026,
-                "simulated_outcomes": 50,
-                "simulation_seed": 2026,
+                "simulated_outcomes": SIMULATED_OUTCOMES,
+                "simulation_seed": SIMULATION_SEED,
                 "bootstrap_samples": 300,
                 "bootstrap_seed": 7,
                 "bad_year_share": 0.8,
@@ -200,6 +205,24 @@ RECIPE = Recipe(
                 # Replaces the computed premium rise of a transition scenario, as a fraction.
                 "replacement_premium_lift": {},
                 "foodhills_short_share": 0.1,
+            },
+        ),
+        StepSpec(
+            "compare_actions",
+            inputs=(
+                "parcel_seasons",
+                "yield_coefficients",
+                "yield_fit",
+                "farm_levels",
+                "contracted_volume",
+                "premiums",
+                "import_factors",
+                "climate_risk",
+                ACTIONS_INPUT,
+            ),
+            params={
+                "simulated_outcomes": SIMULATED_OUTCOMES,
+                "simulation_seed": SIMULATION_SEED,
             },
         ),
     ),

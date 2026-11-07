@@ -1,4 +1,4 @@
-"""Rule proposals screen: data checks with their backtest, and decisions on agents' checks."""
+"""Data checks with their backtest, shown in Data review, and decisions on agents' checks."""
 
 from fastapi import APIRouter, status
 from sqlalchemy import select

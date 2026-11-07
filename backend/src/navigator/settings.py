@@ -1,6 +1,7 @@
 """Typed settings, read from the environment and the git-ignored .env file."""
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,6 +22,7 @@ class Settings(BaseSettings):
 
     catalogue_path: str = "../config/actions/catalogue.json"
 
+    llm_mode: Literal["gemini", "fake"] = "fake"
     gemini_api_key: str = ""
     gemini_model: str = ""
 

@@ -2217,6 +2217,18 @@
             "type": "string",
             "title": "Name"
           },
+          "scenario": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenario",
+            "description": "The climate scenario the option was priced under."
+          },
           "region": {
             "anyOf": [
               {
@@ -2315,6 +2327,7 @@
           "result_set_id",
           "run_id",
           "name",
+          "scenario",
           "region",
           "crop",
           "cost_eur_per_yr",

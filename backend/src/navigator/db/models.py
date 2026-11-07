@@ -237,6 +237,7 @@ class ActionOption(Base):
     result_set_id: Mapped[str] = mapped_column(ForeignKey("result_set.result_set_id"), index=True)
     run_id: Mapped[str] = mapped_column(ForeignKey("run.run_id"))
     name: Mapped[str] = mapped_column(String)
+    scenario: Mapped[str | None] = mapped_column(String)
     region: Mapped[str | None] = mapped_column(String)
     crop: Mapped[str | None] = mapped_column(String)
     cost_eur_per_yr: Mapped[float | None] = mapped_column(Float)

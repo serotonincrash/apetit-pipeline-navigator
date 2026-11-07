@@ -1,6 +1,7 @@
-"""Golden tests for steps 7 to 9: the yield model, the projection and the risk pricing reproduce
-`notebooks/c1_yield_model.ipynb`, `c2_yield_projection.ipynb` and `c3_risk_pricing.ipynb`, and
-their metrics, insights and tables are in the shape the runner stores."""
+"""Golden tests for steps 7 to 10: the yield model, the projection, the risk pricing and the action
+comparison reproduce `notebooks/c1_yield_model.ipynb`, `c2_yield_projection.ipynb`,
+`c3_risk_pricing.ipynb` and `c4_actions.ipynb`, and their metrics, insights, options and tables
+are in the shape the runner stores."""
 
 import json
 from collections.abc import Mapping
@@ -12,18 +13,31 @@ import pandas as pd
 import pytest
 
 from navigator.analysis import yieldmodel as ym
-from navigator.recipes.core import METRIC_COLUMNS, Artifact, RunContext, StepResult
+from navigator.recipes.core import (
+    ACTION_OPTION_COLUMNS,
+    METRIC_COLUMNS,
+    Artifact,
+    RunContext,
+    StepResult,
+)
 from navigator.recipes.farm_climate_risk import UNITS
+from navigator.steps.compare_actions import compare_actions
 from navigator.steps.fit_yield_model import DASH, fit_yield_model
 from navigator.steps.price_risk import price_risk
 from navigator.steps.project_yields import project_yields
 from navigator.storage.objects import frame_to_parquet, parquet_to_frame
-from navigator.worker.runner import build_insight_rows, build_metric_rows
+from navigator.worker.runner import (
+    ACTION_COLUMNS,
+    build_action_option_rows,
+    build_insight_rows,
+    build_metric_rows,
+)
 from tests.golden.conftest import recipe_step, run_step
 
 pytestmark = pytest.mark.golden
 
 RESULTS = Path(__file__).parents[3] / "notebooks" / "results"
+CATALOGUE = Path(__file__).parents[3] / "config" / "actions" / "catalogue.json"
 # The notebooks round their CSV files to 3 and 5 decimals.
 ROUND_3 = 0.0006
 ROUND_5 = 6e-6
@@ -42,6 +56,11 @@ METRIC_NAMES = {
     "price_risk.climate_added_cost_eur",
     "price_risk.foodhills_cover_share",
     "price_risk.foodhills_premium_avoided_eur",
+}
+ACTION_METRIC_NAMES = {
+    "compare_actions.risk_removed_eur",
+    "compare_actions.import_tco2e_removed",
+    "compare_actions.break_even_cost_eur",
 }
 
 
@@ -334,3 +353,207 @@ def test_premium_lift_override(
     assert after[("ssp585", "current_policies")] == pytest.approx(
         base[("ssp585", "current_policies")]
     )
+
+
+# Step 10: compare_actions
+
+
+def actions_input(specs: list[dict[str, Any]]) -> Artifact:
+    """Action specs as the runner passes approved actions: the spec columns, one row each."""
+    rows = [{c: spec.get(c, "catalogue") for c in ACTION_COLUMNS} for spec in specs]
+    return Artifact("actions", "result", pd.DataFrame(rows, columns=ACTION_COLUMNS))
+
+
+def catalogue() -> list[dict[str, Any]]:
+    return json.loads(CATALOGUE.read_text())
+
+
+def spec_with(action_id: str, override: dict[str, Any], units: list[list[str]]) -> dict[str, Any]:
+    return {
+        "action_id": action_id,
+        "name": f"Test action {action_id}",
+        "short_name": action_id,
+        "driver": "heat at flowering, Finnish pea",
+        "applies_at": "project_yields",
+        "override": override,
+        "scope": {"units": units},
+        "cost": {"eur_per_year": 1000, "source": "test"},
+        "confidence": "low",
+        "proposed_by": "test",
+    }
+
+
+def run_compare(
+    ctx: RunContext,
+    tables: dict[str, Artifact],
+    specs: list[dict[str, Any]],
+    **changes: Any,
+) -> StepResult:
+    spec = recipe_step("compare_actions")
+    inputs = {n: tables[n] for n in spec.inputs if n != "actions"}
+    inputs["actions"] = actions_input(specs)
+    return compare_actions(ctx, inputs, {**spec.params, **changes})
+
+
+@pytest.fixture(scope="session")
+def compared(ctx: RunContext, tables: dict[str, Artifact], priced: StepResult) -> StepResult:
+    result = run_compare(ctx, tables, catalogue())
+    tables.update({t.name: t for t in result.tables})
+    return result
+
+
+def test_action_options(compared: StepResult) -> None:
+    actual = frame(compared, "action_results")
+    expected = pd.read_csv(RESULTS / "action_options.csv")
+    key = ["action_id", "scenario"]
+    both = actual.merge(expected, on=key, suffixes=("", "_ref"))
+    assert len(actual) == len(expected) == len(both)
+    assert "A5-shift-sowing-fi-pea" not in set(actual["action_id"])
+    assert list(actual.columns) == list(expected.columns)
+    for column in expected.columns.drop(key):
+        if column in ("name", "confidence"):
+            assert both[column].tolist() == both[f"{column}_ref"].tolist()
+        else:
+            np.testing.assert_allclose(
+                both[column],
+                both[f"{column}_ref"],
+                rtol=EMISSION_RTOL if column.startswith("import") else 0,
+                atol=ROUND_3,
+                err_msg=column,
+            )
+
+
+def test_actions_the_model_cannot_price_are_refused(compared: StepResult) -> None:
+    actual = frame(compared, "actions_not_run")
+    expected = pd.read_csv(RESULTS / "actions_not_run.csv")
+    assert actual["action_id"].tolist() == expected["action"].tolist() == ["A4-irrigate-fi-pea"]
+    assert actual["name"].tolist() == expected["name"].tolist()
+    assert actual["why_not"].tolist() == expected["why not"].tolist()
+    assert "A4-irrigate-fi-pea" not in set(frame(compared, "action_results")["action_id"])
+
+
+def test_loss_drivers(compared: StepResult) -> None:
+    actual = frame(compared, "loss_drivers")
+    expected = pd.read_csv(RESULTS / "loss_drivers.csv")
+    key = ["unit", "region", "crop", "scenario", "driver"]
+    both = actual.merge(expected, on=key, suffixes=("", "_ref"))
+    assert len(actual) == len(expected) == len(both)
+    np.testing.assert_allclose(both["yield_effect_pct"], both["yield_effect_pct_ref"], atol=ROUND_3)
+
+
+def test_actions_the_step_cannot_run_are_refused_not_crashed(
+    ctx: RunContext, tables: dict[str, Artifact], compared: StepResult
+) -> None:
+    unit = [["FI_SW", "pea"]]
+    specs = [
+        spec_with("T1-shift", {"type": "shift_sowing", "days": -7}, unit),
+        spec_with("T2-unknown", {"type": "plough_deeper"}, unit),
+        spec_with("T3-no-share", {"type": "relocate_area"}, unit),
+        spec_with("T4-no-model", {"type": "relocate_area", "share": 0.2}, [["XX", "pea"]]),
+        spec_with(
+            "T5-no-feature", {"type": "scale_feature", "feature": "nope", "factor": 0.5}, unit
+        ),
+    ]
+    result = run_compare(ctx, tables, specs)
+    refused = frame(result, "actions_not_run")
+    assert refused["action_id"].tolist() == [s["action_id"] for s in specs]
+    reasons = dict(zip(refused["action_id"], refused["why_not"], strict=True))
+    assert reasons["T1-shift"] == "override type 'shift_sowing' is not implemented"
+    assert all(reasons.values())
+    assert frame(result, "action_results").empty
+    assert result.metrics is not None and result.metrics.empty
+    assert result.action_options is not None and result.action_options.empty
+    assert list(result.action_options.columns) == ACTION_OPTION_COLUMNS
+
+
+def test_a_price_override_on_step_9_reaches_step_10(
+    ctx: RunContext, tables: dict[str, Artifact], compared: StepResult
+) -> None:
+    pricing = recipe_step("price_risk")
+    changed = price_risk(
+        ctx,
+        {n: tables[n] for n in pricing.inputs},
+        {**pricing.params, "price_overrides": {"pea": {"contract_price_eur_t": 430}}},
+    )
+    moved = {**tables, **{t.name: t for t in changed.tables}}
+    heat_tolerant = [a for a in catalogue() if a["action_id"] == "A6-heat-tolerant-pea-fi"]
+    result = run_compare(ctx, moved, heat_tolerant)
+    base = run_compare(ctx, tables, heat_tolerant)
+
+    def removed(step_result: StepResult) -> float:
+        table = frame(step_result, "action_results")
+        return float(table.loc[table["scenario"].eq("baseline"), "risk_removed_eur"].iloc[0])
+
+    assert removed(result) == pytest.approx(removed(base) * 430 / 420)
+
+
+def test_other_simulation_settings_than_step_8_stop_the_run(
+    ctx: RunContext, tables: dict[str, Artifact], compared: StepResult
+) -> None:
+    heat_tolerant = [a for a in catalogue() if a["action_id"] == "A6-heat-tolerant-pea-fi"]
+    with pytest.raises(ValueError, match="must equal those of project_yields"):
+        run_compare(ctx, tables, heat_tolerant, simulation_seed=1)
+
+
+def test_action_tables_are_stored_as_parquet(compared: StepResult) -> None:
+    for table in compared.tables:
+        stored = parquet_to_frame(frame_to_parquet(table.frame))
+        assert stored.shape == table.frame.shape, table.name
+        assert list(stored.columns) == list(table.frame.columns), table.name
+
+
+def test_action_metrics_and_options_reach_the_runner(
+    tables: dict[str, Artifact],
+    fitted: StepResult,
+    projected: StepResult,
+    priced: StepResult,
+    compared: StepResult,
+) -> None:
+    assert compared.metrics is not None and compared.action_options is not None
+    assert list(compared.metrics.columns) == METRIC_COLUMNS
+    assert list(compared.action_options.columns) == ACTION_OPTION_COLUMNS
+    names = [a.name for r in (fitted, projected, priced, compared) for a in r.assumptions]
+    assert len(names) == len(set(names))
+    assumption_ids = {name: f"asm_{name}" for name in names}
+    artifact_ids = {name: f"art_{name}" for name in tables}
+    rows, _ = build_metric_rows([compared.metrics], "rs_1", artifact_ids, assumption_ids)
+    # Four priced actions, four climate scenarios and three measures.
+    assert len(rows) == 48
+    assert {r.name for r in rows} == ACTION_METRIC_NAMES
+    for row in rows:
+        json.dumps(row.lineage)
+        assert row.action_id and row.scenario and row.period
+        assert row.region is None and row.crop is None
+    known = {a["action_id"] for a in catalogue()}
+    options = build_action_option_rows(
+        [compared.action_options], "rs_1", "run_1", assumption_ids, known
+    )
+    assert len(options) == 16
+    assert {o.run_id for o in options} == {"run_1"}
+    assert {o.scenario for o in options} == {"baseline", "ssp126", "ssp245", "ssp585"}
+    irrigation = next(
+        o for o in options if o.action_id == "A3-irrigate-potato-carrot" and o.scenario == "ssp585"
+    )
+    assert irrigation.region == "FI_SW" and irrigation.crop is None
+    assert irrigation.cost_eur_per_yr == 60000
+    assert irrigation.emissions_change_t is not None and irrigation.emissions_change_t < 0
+    assert "asm_compare_actions.action_cost.A3-irrigate-potato-carrot" in irrigation.assumption_ids
+
+    unknown = compared.action_options.assign(action_id="A9-not-in-the-catalogue")
+    with pytest.raises(ValueError, match="not in the action catalogue"):
+        build_action_option_rows([unknown], "rs_1", "run_1", assumption_ids, known)
+
+
+def test_action_metric_lineage_selects_rows(
+    tables: dict[str, Artifact], compared: StepResult
+) -> None:
+    assert compared.metrics is not None
+    for record in compared.metrics.to_dict("records"):
+        assert plain([record[c] for c in METRIC_COLUMNS if c != "lineage"])
+        for entry in record["lineage"]:
+            assert plain(list(entry["filter"].values()))
+            data = tables[entry["table"]].frame
+            mask = pd.Series(True, index=data.index)
+            for column, value in entry["filter"].items():
+                mask &= data[column].isin(value if isinstance(value, list) else [value])
+            assert mask.any(), entry

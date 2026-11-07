@@ -2,10 +2,12 @@
 
 import pandas as pd
 import pytest
+from pydantic import BaseModel
 from sqlalchemy import func, select
 
 from navigator.db import models as m
 from navigator.db.session import session_scope
+from navigator.llm import models as llm_models
 from navigator.recipes.core import (
     METRIC_COLUMNS,
     STEPS,
@@ -99,3 +101,41 @@ def test_a_run_that_cannot_store_its_results_leaves_none(
         assert "no_such_metric" in (run.error or "")
         for table in (m.ResultSet, m.Metric, m.Insight):
             assert session.scalar(select(func.count()).select_from(table)) == 0
+
+
+class Explanation(BaseModel):
+    explanation: str
+
+
+def explaining_step(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> StepResult:
+    assert ctx.llm is not None
+    result = ctx.llm.call(
+        "review-explainer",
+        "v1",
+        "Explain this proposal.",
+        Explanation,
+        item="prop_1",
+        prose_fields=["explanation"],
+    )
+    assert not result.ok
+    return StepResult(tables=[])
+
+
+def test_an_agent_call_that_fails_shows_on_the_run_timeline_and_the_run_goes_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setitem(llm_models.FAKE_RESPONSES, Explanation, {"explanation": "A robust fix."})
+    info = StepInfo("explain", "llm", "Explains proposals.", explaining_step)
+    monkeypatch.setitem(STEPS, "explain", info)
+    recipe = Recipe("farm_climate_risk", 2, "Test", (StepSpec("explain", inputs=()),))
+    monkeypatch.setattr(runner, "get_recipe", lambda _: recipe)
+    run_id = add_run("running")
+    runner.execute_run(run_id)
+    with session_scope() as session:
+        assert session.get_one(m.Run, run_id).status == "succeeded"
+        events = session.scalars(select(m.RunEvent).where(m.RunEvent.type == "call.failed")).all()
+        assert [(e.step, e.payload["agent"], e.payload["item"]) for e in events] == [
+            ("explain", "review-explainer", "prop_1")
+        ]
+        calls = session.scalars(select(m.LlmCall).order_by(m.LlmCall.attempt)).all()
+        assert [c.status for c in calls] == ["retried", "retried", "failed"]

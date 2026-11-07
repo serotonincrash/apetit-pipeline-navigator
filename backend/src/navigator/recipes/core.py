@@ -19,9 +19,12 @@ from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from navigator.llm import Llm
 
 Layer = Literal["raw", "clean", "feature", "result"]
 StepKind = Literal["load", "propose", "transform", "model", "llm"]
@@ -73,9 +76,29 @@ METRIC_COLUMNS = [
 # `text`, and the keys of the metrics it cites.
 INSIGHT_COLUMNS = ["title", "text", "metric_keys"]
 
+# Columns of StepResult.action_options: one priced action in one climate scenario per row. The
+# step names its assumptions; the runner swaps in assumption ids when it stores the rows.
+ACTION_OPTION_COLUMNS = [
+    "key",
+    "action_id",
+    "name",
+    "scenario",
+    "region",
+    "crop",
+    "cost_eur_per_yr",
+    "risk_reduced_eur_per_yr",
+    "emissions_change_t",
+    "assumptions",
+    "confidence",
+]
+
 # The runner passes this run's proposals to later steps under this input name, with a `status`
 # column: open, approved, rejected or flag.
 PROPOSALS_INPUT = "proposals"
+
+# The runner passes the approved actions to later steps under this input name, one row per action
+# whose latest decision is an approval, with the columns of an action spec.
+ACTIONS_INPUT = "actions"
 
 
 @dataclass(frozen=True)
@@ -102,6 +125,7 @@ class RunContext:
     run_id: str
     recipe_id: str
     sources: Mapping[str, SourceFile] = field(default_factory=dict[str, SourceFile])
+    llm: Llm | None = None
 
 
 @dataclass(frozen=True)
@@ -126,6 +150,7 @@ class StepResult:
     rules: pd.DataFrame | None = None
     metrics: pd.DataFrame | None = None
     insights: pd.DataFrame | None = None
+    action_options: pd.DataFrame | None = None
     assumptions: list[AssumptionUse] = field(default_factory=list[AssumptionUse])
 
 

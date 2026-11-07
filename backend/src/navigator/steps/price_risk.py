@@ -82,6 +82,10 @@ def price_risk(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> 
     lift_override: Mapping[str, float] = params["replacement_premium_lift"]
     short_share = float(params["foodhills_short_share"])
     draws = inputs["yield_draws"].frame
+    import_factors = pd.DataFrame(
+        [(region, crop, factor) for (region, crop), factor in import_ef.items()],
+        columns=["region", "crop", "import_ef_t_per_t"],
+    )
 
     with section(
         "contracted volume",
@@ -148,6 +152,8 @@ def price_risk(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> 
             Artifact("climate_risk", "result", climate_risk),
             Artifact("climate_risk_total", "result", climate_risk_total),
             Artifact("foodhills_cover", "result", foodhills),
+            Artifact("premiums", "result", premium_table),
+            Artifact("import_factors", "result", import_factors),
         ],
         metrics=metric_frame(metrics),
         insights=insights,

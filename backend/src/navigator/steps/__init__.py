@@ -3,6 +3,7 @@
 from navigator.steps import (
     apply_approved,
     check_farm_data,
+    compare_actions,
     fit_yield_model,
     load_raw,
     price_risk,
@@ -15,6 +16,7 @@ from navigator.steps import (
 __all__ = [
     "apply_approved",
     "check_farm_data",
+    "compare_actions",
     "fit_yield_model",
     "load_raw",
     "price_risk",

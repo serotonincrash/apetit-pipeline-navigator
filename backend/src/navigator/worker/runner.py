@@ -8,12 +8,12 @@ app can follow a run live.
 Steps name their metrics, lineage tables, assumptions and insight citations; the runner swaps
 in the ids. It holds every step's metrics and insights in memory and writes them with the
 result set in the same transaction that marks the run succeeded, so a failed run leaves no
-partial results.
+partial results. Action options are written in the same transaction.
 """
 
 import re
 import time
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -25,8 +25,11 @@ from navigator import ids
 from navigator.db import models as m
 from navigator.db.decisions import latest_decisions, proposal_status, proposal_value
 from navigator.db.session import session_scope
+from navigator.llm import get_llm
 from navigator.logs import get_logger
 from navigator.recipes.core import (
+    ACTION_OPTION_COLUMNS,
+    ACTIONS_INPUT,
     INSIGHT_COLUMNS,
     METRIC_COLUMNS,
     PROPOSALS_INPUT,
@@ -124,6 +127,37 @@ def proposals_with_status(session: Session, run_id: str) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=columns)
 
 
+ACTION_COLUMNS = [
+    "action_id",
+    "name",
+    "short_name",
+    "driver",
+    "applies_at",
+    "override",
+    "scope",
+    "cost",
+    "confidence",
+    "proposed_by",
+]
+
+
+def approved_actions(session: Session) -> pd.DataFrame:
+    """The actions whose latest decision is an approval, one row each, ordered by action id.
+
+    An action nobody has approved, or whose latest decision is a rejection, does not appear.
+    """
+    definitions = session.scalars(
+        select(m.ActionDefinition).order_by(m.ActionDefinition.action_id)
+    ).all()
+    latest = latest_decisions(session, "action", (a.action_id for a in definitions))
+    rows = [
+        {column: getattr(a, column) for column in ACTION_COLUMNS}
+        for a in definitions
+        if (decision := latest.get(a.action_id)) is not None and decision.decision == "approve"
+    ]
+    return pd.DataFrame(rows, columns=ACTION_COLUMNS)
+
+
 METRIC_TOKEN = re.compile(r"\{\{metric:([^}]+)\}\}")
 DIMENSIONS = ["region", "crop", "scenario", "ngfs_scenario", "period", "action_id"]
 
@@ -200,6 +234,56 @@ def build_metric_rows(
     return rows, metric_ids
 
 
+def build_action_option_rows(
+    frames: Sequence[pd.DataFrame],
+    result_set_id: str,
+    run_id: str,
+    assumption_ids: Mapping[str, str],
+    known_action_ids: Collection[str],
+) -> list[m.ActionOption]:
+    """Turn the steps' action option tables into rows, swapping assumption names for ids."""
+    rows: list[m.ActionOption] = []
+    keys: set[str] = set()
+    for frame in frames:
+        _check_columns(frame, ACTION_OPTION_COLUMNS, "action option")
+        for record in frame.to_dict("records"):
+            key = str(record["key"])
+            if key in keys:
+                raise ValueError(f"The action option key {key!r} is used twice.")
+            keys.add(key)
+            if record["action_id"] not in known_action_ids:
+                raise ValueError(
+                    f"The action option {key!r} is for the action {record['action_id']!r}, "
+                    "which is not in the action catalogue."
+                )
+            assumption_refs: list[str] = []
+            for name in record["assumptions"]:
+                if name not in assumption_ids:
+                    raise ValueError(
+                        f"The action option {key!r} names the assumption {name!r}, "
+                        "which no step recorded."
+                    )
+                assumption_refs.append(assumption_ids[name])
+            rows.append(
+                m.ActionOption(
+                    option_id=ids.new_id("action_option"),
+                    action_id=record["action_id"],
+                    result_set_id=result_set_id,
+                    run_id=run_id,
+                    name=record["name"],
+                    scenario=_optional(record["scenario"]),
+                    region=_optional(record["region"]),
+                    crop=_optional(record["crop"]),
+                    cost_eur_per_yr=_optional_float(record["cost_eur_per_yr"]),
+                    risk_reduced_eur_per_yr=_optional_float(record["risk_reduced_eur_per_yr"]),
+                    emissions_change_t=_optional_float(record["emissions_change_t"]),
+                    assumption_ids=assumption_refs,
+                    confidence=_optional(record["confidence"]),
+                )
+            )
+    return rows
+
+
 def build_insight_rows(
     held: Sequence[tuple[str, pd.DataFrame]],
     result_set_id: str,
@@ -245,7 +329,9 @@ class RunExecution:
         self.tables: dict[str, Artifact] = {}
         self.metrics: list[pd.DataFrame] = []
         self.insights: list[tuple[str, pd.DataFrame]] = []
+        self.action_options: list[pd.DataFrame] = []
         self.assumption_ids: dict[str, str] = {}
+        self.current_step: str | None = None
 
     def execute(self) -> None:
         with session_scope() as session:
@@ -256,7 +342,10 @@ class RunExecution:
             step_runs = self._create_step_runs(session, recipe, overrides)
         emit(self.run_id, "run.status", {"status": "running"})
         ctx = RunContext(
-            run_id=self.run_id, recipe_id=recipe.recipe_id, sources=PackageSources(files)
+            run_id=self.run_id,
+            recipe_id=recipe.recipe_id,
+            sources=PackageSources(files),
+            llm=get_llm(self.run_id, on_failure=self._llm_call_failed),
         )
 
         for spec, step_run_id in zip(recipe.steps, step_runs, strict=True):
@@ -277,6 +366,15 @@ class RunExecution:
             )
             session.add_all(metric_rows)
             session.add_all(build_insight_rows(self.insights, result_set.result_set_id, metric_ids))
+            session.add_all(
+                build_action_option_rows(
+                    self.action_options,
+                    result_set.result_set_id,
+                    self.run_id,
+                    self.assumption_ids,
+                    set(session.scalars(select(m.ActionDefinition.action_id)).all()),
+                )
+            )
             run = session.get_one(m.Run, self.run_id)
             run.status = "succeeded"
             run.finished_at = _now()
@@ -306,10 +404,20 @@ class RunExecution:
             step_run_ids.append(step_run.step_run_id)
         return step_run_ids
 
+    def _llm_call_failed(self, agent: str, item: str, reason: str) -> None:
+        step = self.current_step
+        emit(
+            self.run_id,
+            "call.failed",
+            {"step": step, "agent": agent, "item": item, "reason": reason},
+            step,
+        )
+
     def _execute_step(
         self, ctx: RunContext, spec: StepSpec, step_run_id: str, params: Params
     ) -> None:
         info = STEPS[spec.name]
+        self.current_step = spec.name
         started = time.monotonic()
         with session_scope() as session:
             step_run = session.get_one(m.StepRun, step_run_id)
@@ -384,6 +492,8 @@ class RunExecution:
             if name == PROPOSALS_INPUT:
                 frame = proposals_with_status(session, self.run_id)
                 inputs[name] = Artifact(name=name, layer="result", frame=frame)
+            elif name == ACTIONS_INPUT:
+                inputs[name] = Artifact(name=name, layer="result", frame=approved_actions(session))
             elif name in self.tables:
                 inputs[name] = self.tables[name]
             else:
@@ -446,6 +556,8 @@ class RunExecution:
             self.metrics.append(result.metrics)
         if result.insights is not None and len(result.insights):
             self.insights.append((step, result.insights))
+        if result.action_options is not None and len(result.action_options):
+            self.action_options.append(result.action_options)
 
         for use in result.assumptions:
             if use.name in self.assumption_ids:
