@@ -37,7 +37,6 @@ is what people see; the "In code" column is the name in tables, columns and func
 | Fix | `action = "fix"` | Fix | A proposal that changes a value once approved |
 | Flag | `action = "flag"` | Flag | A proposal that marks a record without changing it |
 | Rule | `rule` | Data check | A written check that produces proposals |
-| Rule policy | `reviewer = "Rule policy"` | Approved by data check policy | Approval of a rule's fixes because its backtest was perfect |
 | Decision | `decision` | Decision | One person's approve, edit or reject, never changed afterwards |
 | Result set | `result_set` | Results | All results of one run, reviewed and published together |
 | Metric | `metric` | (the number itself) | One result number with its lineage |
