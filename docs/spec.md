@@ -33,9 +33,11 @@ The two audiences we design for are the sustainability specialist, who is fluent
 
 How the two steps work:
 
-- Data review: rules and agents write proposals. Each has the record, the old and new value, the evidence and a plain-language explanation. A proposal starts as `proposed` and becomes `approved`, `edited` or `rejected`. The cleaned tables are rebuilt from the raw data plus approved proposals only.
-- Auto-approval: allowed only for a rule that flags no correct records on the labelled 2023–24 history and whose fixed values match the true ones. The log records it as approved by the rule policy, and a person can still reverse any single item.
+- Data review: rules and agents write proposals. Each has the record, the old and new value, the evidence and a plain-language explanation. A fix is `open` until a person decides; the latest decision makes it `approved` (an edit counts as approved, with the edited value) or `rejected`. A flag stays `flag` unless a person rejects it. The cleaned tables are rebuilt from the raw data plus approved fixes only.
+- No automatic approval. Every fix needs a person's decision. To save time, a reviewer can approve or reject all of one rule's proposals at once; that records one decision per proposal.
+- Decisions carry over between runs. A decision points at the proposal's fixed key (rule, record key and field). The next run's check step writes the same proposal again, and it arrives with its decision already applied. A run never overwrites a person's decision.
 - Results review: a run's results start as a `draft`. Approval freezes them under the run's id, and publishing makes the report visible. A later run never changes a published result; it creates a new one.
+- Only the two specialists make decisions, so the persona switcher offers those two. The sourcing manager comments on action options; management reads the published report.
 
 ## Questions to ask Apetit
 
@@ -72,7 +74,7 @@ Raw files are checked, a person approves the fixes, and the cleaned tables feed 
 
 ## Backend architecture
 
-Five services behind a reverse proxy: a worker runs every recipe step, the API only queues runs and serves results, Postgres holds the platform's state and run queue, and MinIO holds the data. These decisions were taken by the team on 7 November.
+Five services behind a reverse proxy, plus a sandbox: a worker runs every recipe step, the API only queues runs and serves results, Postgres holds the platform's state and run queue, MinIO holds the data, the web service serves the app, and the sandbox runs approved rule code written by an agent. These decisions were taken by the team on 7 November.
 
 &#91;embedded content: backend containers · 4 services, 1 external API\]
 
@@ -81,22 +83,25 @@ The web app talks only to the API. The API writes runs into the Postgres queue a
 | Area | Decision |
 | --- | --- |
 | Backend | Python with FastAPI. The API and the worker import the analysis code directly; nothing runs as a subprocess. |
-| Containers | Docker Compose: API and worker (same image, different command), Postgres, MinIO, web, a Caddy reverse proxy in front, and a one-off seed job. |
+| Containers | Docker Compose: API and worker (same image, different command), Postgres, MinIO, web, a Caddy reverse proxy in front, a sandbox for rule code written by an agent, and a one-off seed job. |
 | Platform tables | Postgres, through SQLAlchemy with Alembic migrations. |
 | Run queue | The worker polls the `run` table and claims a run with row locking (`FOR UPDATE SKIP LOCKED`). One run at a time. |
 | Artifacts | Parquet files in MinIO, through the S3 API. |
 | Reading results | The API queries the Parquet artifacts in MinIO with DuckDB on each request, including drill-down to source rows. |
-| Lineage | Artifact plus filter: each metric records its source artifacts and the filter that selects its contributing rows. |
+| Lineage | Artifact plus filter: each metric records its source artifacts and, for each, a filter of column-value pairs that selects its contributing rows (see Lineage filter under Data model). |
 | Recipes | Pure Python. The notebook logic is refactored into step functions. A `@step` decorator and named `section` blocks inside steps carry plain-language annotations, which the app shows next to each run. |
 | Reusing work | Normal runs rerun every step. A what-if run starts from an approved run's artifacts and reruns only the steps after its override. |
 | Live progress | REST for everything, plus a server-sent event stream per run for step and section progress. |
 | LLM | Gemini through an AI Studio API key, using Google's `google-genai` SDK behind a thin internal wrapper: prompt in, validated JSON out, every call logged. |
+| Data sent to the LLM | During the hackathon only the synthetic challenge package goes to Gemini. Real Apetit data waits for Apetit's written answer on LLM use; the wrapper lets them switch provider. |
+| LLM failures | Output that fails its JSON schema, a guardrail or the prose check goes back to the model with the error, at most twice. After that the call is recorded as failed and shows in its queue. A failed report draft produces no draft, never a partial one. If the key fails or the quota runs out, the wrapper switches to the fake model the tests use, and the call log records the switch. |
+| Agent rule sandbox | Rule code written by an agent runs only after a person approves it, and only in a separate sandbox service: no network, a read-only file system, and CPU, memory and time limits. The worker sends it the input table and the rule code, and gets proposals back as JSON that must pass the proposal schema. Rules written by people run in the worker. |
 | Sign-in | None for the hackathon. A persona switcher picks the role and the name recorded on decisions. |
 | Code and tools | A new monorepo; uv for Python dependencies; golden-number tests (each step reproduces the notebooks' results) plus tests of the main API flows. |
 | Configuration | A git-ignored .env file read by Docker Compose and loaded into a typed settings object with pydantic-settings; a committed .env.example lists every variable. |
 | Logging | Structured JSON logs to stdout from the API and worker. Run, step and section events are also stored in Postgres and streamed to the app. |
-| Ids | Prefixed by record type, followed by a time-sortable unique id: run\_…, step\_…, art\_…, prop\_…, dec\_…, met\_…, act\_… |
-| Seeding data | A one-off seed job at startup uploads the unzipped challenge package to MinIO and records each file with its checksum. Runs read from MinIO only. |
+| Ids | Prefixed by record type, followed by a time-sortable unique id: run\_…, step\_…, art\_…, prop\_…, dec\_…, met\_…, act\_…, opt\_…, rs\_…, asm\_…, ins\_…, rep\_…, call\_… (the full list is in ids.py) |
+| Seeding data | A one-off seed job at startup uploads the unzipped challenge package to MinIO and records each file with its checksum. Runs read from MinIO only. The seed job also loads the action catalogue and records a Catalogue policy approval for each catalogue action. |
 | Demo hosting | The same Compose stack on a Vultr VM, with Caddy providing HTTPS automatically and one URL for web and API. |
 | Demo access | One shared username and password at the Caddy proxy, so the public URL can't be used to start runs on the team's Gemini key. |
 | Production LLM | Apetit's choice. Any provider plugs in behind the wrapper if it offers structured JSON output, per-call logging and data-handling terms Apetit accepts. |
@@ -147,13 +152,13 @@ climate-nature-navigator/
 
 ## Run lifecycle and live events
 
-The API queues a run, the worker executes it, and its progress streams to the app as it happens. Changes to data and results take effect only through approvals and new runs; a run never pauses to wait for a person.
+The API queues a run, the worker executes it, and its progress streams to the app as it happens. Changes to data and results take effect only through approvals and new runs; a run never pauses to wait for a person. Review and publishing are states of the result set, not steps of a recipe.
 
 | Run kind | Starts from | Steps executed |
 | --- | --- | --- |
 | Full | The raw package in MinIO and the fixes approved so far | Every step of the recipe |
 | What-if | An approved run and one approved action spec | Only the steps from the action's override point; earlier steps reuse the parent run's artifacts |
-| Report | A succeeded run's result set | Only the report drafter, which writes a draft for results review |
+| Report | A succeeded run's result set | Only the report drafter. Each report run writes a new numbered draft to the report table; drafts are never overwritten |
 
 States:
 
@@ -176,7 +181,7 @@ Events are stored in a `run_event` table and streamed at `GET /api/runs/{id}/eve
 
 ## API
 
-Twenty-seven endpoints, all under `/api`, grouped by the screen that uses them. FastAPI generates the OpenAPI contract from them, and the frontend client is generated from that contract. This list is the starting contract for the first hour; field-level detail lives in the code. Every write takes the current persona's name, sent by the app in an `X-Persona` header, and records it.
+Twenty-seven endpoints, the 26 rows below plus one for marking action options, all under `/api`, grouped by the screen that uses them. FastAPI generates the OpenAPI contract from them, and the frontend client is generated from that contract. The field-level contract is `docs/openapi.json`, generated from the code; regenerate it after every API change. Every write takes the current persona's name, sent by the app in an `X-Persona` header, and records it.
 
 | Screen | Method and path | What it does |
 | --- | --- | --- |
@@ -190,17 +195,18 @@ Twenty-seven endpoints, all under `/api`, grouped by the screen that uses them. 
 | Runs, risk | `GET /api/artifacts/{id}/export` | The filtered rows as an Excel file |
 | Data review | `GET /api/proposals`, `GET /api/proposals/{id}` | Proposals filtered by rule, table and status; one with its evidence and explanation |
 | Data review | `POST /api/proposals/{id}/decisions` | Approve, edit or reject one proposal, with a comment |
-| Data review | `POST /api/proposals/decisions` | One decision applied to many proposals (for example, all of one rule), logged per proposal |
+| Data review | `POST /api/proposals/decisions` | Approve or reject many proposals in one call (for example, all of one rule). It writes one decision row per proposal, exactly as if each were decided on its own |
 | Rule proposals | `GET /api/rules`, `POST /api/rules/{id}/decisions` | Rules with their backtest; approve or reject an agent's rule |
 | Risk view | `GET /api/result-sets`, `GET /api/result-sets/{id}/metrics` | Result sets of a run; metrics filtered by region, crop, scenario and NGFS scenario |
 | Risk view | `GET /api/metrics/{id}/sources` | Drill-down: source artifacts, the lineage filter, contributing rows, corrections applied and assumptions used |
 | Risk view | `GET /api/assumptions` | Assumptions behind a result set, with their sources; changing one means queuing a run with overrides |
 | Actions | `GET /api/actions`, `POST /api/actions/{id}/decisions` | Catalogue and proposed action specs; approve one to run |
 | Actions | `GET /api/result-sets/{id}/action-options` | Priced what-if results for comparison |
+| Actions | `POST /api/action-options/{id}/decisions` | Mark a priced option recommended, considered or rejected, with a comment |
 | Report | `POST /api/result-sets/{id}/report` | Ask the report drafter for a draft, queued as a report run on the worker |
-| Report | `GET /api/result-sets/{id}/report` | The draft or published report, with citation tokens resolved to metrics |
+| Report | `GET /api/result-sets/{id}/report` | The latest draft or the published report: its text with metric tokens resolved, its insights, and the lineage of every number |
 | Report | `POST /api/result-sets/{id}/decisions` | Move a result set to in review, approved or published |
-| Report | `GET /api/result-sets/{id}/report/export` | The published report as PDF or Markdown |
+| Report | `GET /api/result-sets/{id}/report/export` | The published report as Markdown. PDF comes from the browser's print, with every disclosure group open |
 
 ## Frontend
 
@@ -223,7 +229,7 @@ Pages, one route per screen:
 | `/review/rules` | Rule proposals |
 | `/risk` | Risk view, filtered by region, crop, climate and NGFS scenario; where the sustainability specialist lands |
 | `/actions` | Action catalogue and priced what-ifs |
-| `/report/$resultSetId` | Report draft, review and publishing |
+| `/report/$resultSetId` | The interactive report: drafted text, a dashboard of its key metrics and insights, and each number's lineage in a disclosure group; review and publishing |
 
 Three things every screen shares:
 
@@ -241,9 +247,10 @@ The same Docker Compose file runs on a developer's laptop and on the Vultr VM. O
 | `web` | Built frontend | Serves the compiled React app as static files | None |
 | `api` | Backend image | FastAPI under uvicorn | None |
 | `worker` | Backend image | The run queue loop | None |
+| `sandbox` | Backend image | Runs approved rule code written by an agent, with no network, a read-only file system, and CPU, memory and time limits | None |
 | `postgres` | Postgres | Platform tables, run queue, run events | Database volume |
 | `minio` | MinIO | Raw package, artifacts | Object volume |
-| `seed` | Backend image | One-off at startup: runs the Alembic migrations, then uploads the challenge package to MinIO with checksums; exits | None |
+| `seed` | Backend image | One-off at startup: runs the Alembic migrations, then uploads the challenge package to MinIO with checksums and loads the action catalogue; exits | None |
 
 Environment variables, listed in `infra/.env.example`:
 
@@ -263,7 +270,8 @@ On the Vultr VM:
 2. Copy the repo and the unzipped package to the VM, and fill in `.env`.
 3. Run `docker compose up -d`. The seed job loads the data; Caddy fetches the certificate.
 4. Queue one full run of each recipe, review and publish its results, so judges find a complete example waiting.
-5. Size the VM after a test run there; the MinIO console stays internal.
+5. After the judges have used the app, run `scripts/reset_demo.sh`. It empties the database and the bucket, reseeds the package, and queues and approves one full run again, so the VM is back in its prepared state.
+6. Size the VM after a test run there; the MinIO console stays internal.
 
 ## Local development
 
@@ -305,11 +313,11 @@ Agents never run `docker compose down -v` or touch another worktree's database o
 
 Two kinds of test, both run with pytest. Golden-number tests prove the refactored steps still give the notebooks' answers; API tests prove the main flows work end to end.
 
-Golden-number tests compare each refactored step with the versioned results in `notebooks/results/`:
+Golden-number tests compare each refactored step with the notebooks' results: fingerprints in backend/tests/golden/reference/ for tables the notebooks don't keep, and the versioned files in `notebooks/results/`:
 
 | Step | Must reproduce |
 | --- | --- |
-| Check farm data | The corrections log: 18, 44, 85, 195 and 6 proposals for rules R1 to R5 |
+| Check farm data | The corrections log: 18, 44, 85, 195 and 6 proposals for rules R1 to R5, with no decisions written by the step. The test then approves the R1, R2, R3 and R5 fixes as a reviewer would, to match the notebook |
 | Tune calendar | The chosen settings in `calendar_choice.csv` |
 | Fit yield model | The coefficients and backtest errors in `yield_model.json` and `yield_backtest_summary.csv` |
 | Project yields | The yield changes and bad-year chances in `yield_projection_2041_2060.csv` |
@@ -324,11 +332,13 @@ API tests run against the worktree's own test database and bucket in the shared 
 4. Approve an action and run it as a what-if from an approved run; see only the later steps executed.
 5. Draft, approve and publish a report, and see every number resolve to a metric.
 
-The golden tests run on every commit. The API tests run before each deploy to the VM.
+The golden tests run in the pre-commit hook on every commit. They start from the raw package and chain the steps, so they never depend on notebook outputs. The API tests run before each deploy to the VM.
 
 ## Writing standards
 
 Three kinds of text reach people: the annotations on steps and sections in the recipe code, the text the agents write at runtime, and the copy in the web app. The readers are the two specialists and Apetit's management. They know farming and the numbers, and most of them don't read code.
+
+The rules are checked automatically. `scripts/check_prose.py` looks for em dashes, symbol shorthand in sentences, the banned words and the word limits. Pre-commit runs it on step annotations, UI strings and prompt files. The LLM wrapper runs it on every agent text, where a breach counts as a failed validation (sent back at most twice, then failed).
 
 Rules for all three:
 
@@ -380,7 +390,7 @@ Each agent returns structured JSON, and its free-text fields follow the rules ab
 | Agent | Field | Limit | What it must contain |
 | --- | --- | --- | --- |
 | Fix proposer | explanation | 60 words | What looks wrong, the evidence (record keys), the proposed fix, what happens if it is rejected |
-| Review explainer | explanation | 80 words | Why the rule fired, with the values that made it fire |
+| Review explainer | explanation | 80 words | Why the rule fired, with the values that made it fire written as evidence tokens such as {{ev:ratio\_to\_median}}, never as typed numbers |
 | Action proposer | rationale | 80 words | The driver it targets, how the override models it, the cost and its source |
 | Report drafter | each paragraph | 120 words | Findings as citation tokens to metrics, never typed numbers |
 
@@ -414,10 +424,11 @@ Tools, all run by pre-commit hooks before each commit:
 | Area | Tool | Setting |
 | --- | --- | --- |
 | Python lint and format | ruff | Rule sets E, F, I, B, UP, SIM and RUF; line length 100; `ruff format` |
-| Python types | pyright | Strict on `navigator/`, basic on `tests/` |
+| Python types | pyright | Strict on `navigator/`, except `analysis/`, which is basic until it is typed; basic on `tests/` |
 | TypeScript lint and format | Biome | Recommended rules, `noExplicitAny` as an error |
 | TypeScript types | tsc | `strict` and `noUncheckedIndexedAccess` on |
 | Golden tests | pytest | The golden-number tests from Testing |
+| Prose | `scripts/check_prose.py` | The writing standards' banned patterns and word limits, on annotations, UI strings and prompt files |
 
 The standards in this section and Writing standards, plus the glossary, are copied into `AGENTS.md` at the repo root, so every coding agent works from the same rules.
 
@@ -458,7 +469,7 @@ Generated interfaces tend to look alike: every page a grid of identical cards wi
 
 ## Data model
 
-Fourteen tables hold everything the platform knows: what went in, what each step did, what people decided and what came out. Data tables themselves (raw, cleaned, features) are Parquet files registered as artifacts; these tables describe them. They live in Postgres, and the artifacts are Parquet files in MinIO (see Backend architecture). In Fabric, the artifacts become Delta tables in the Lakehouse.
+Feventeen tables hold everything the platform knows: what went in, what each step did, what people decided and what came out. Data tables themselves (raw, cleaned, features) are Parquet files registered as artifacts; these tables describe them. They live in Postgres, and the artifacts are Parquet files in MinIO (see Backend architecture). In Fabric, the artifacts become Delta tables in the Lakehouse.
 
 | Table | One row is | Key columns | Written by |
 | --- | --- | --- | --- |
@@ -469,48 +480,95 @@ Fourteen tables hold everything the platform knows: what went in, what each step
 | `run_event` | One progress event from a run, streamed to the app | event\_id, run\_id, step, type, payload, created\_at | Runner |
 | `artifact` | One table a step produced | `artifact_id`, `step_run_id`, `name`, `uri`, `layer` (raw, clean, feature, result), `row_count`, `content_hash` | Runner |
 | `assumption` | One input value a person can question | `assumption_id`, `name`, `value`, `unit`, `source` (file and row, or document and section), `owner`, `status` | Sustainability specialist, steps |
-| `proposal` | One proposed data fix or flag | `proposal_id` (rule, record key and field), `run_id`, `rule_id`, `proposer` (rule or agent and model), `table`, `record_key`, `field`, `old_value`, `new_value`, `action` (fix or flag), `evidence`, `explanation`, `status` | Check steps, agents |
+| `proposal` | One proposed data fix or flag, as one run wrote it | proposal\_id (prop\_…), proposal\_key (rule, record key and field; the same in every run), run\_id, rule\_id, issue\_type, proposer, table, record\_key, field, old\_value, new\_value, action (fix or flag), evidence (JSON, see Proposal columns), explanation. No status column: the status comes from the latest decision on the proposal\_key. | Check steps, agents |
 | `rule` | One check, written by a person or proposed by an agent | `rule_id`, `version`, `code`, `author`, `backtest` (precision and recall on labelled history), `status` | Developers, agent |
-| `decision` | One human decision, never edited afterwards | `decision_id`, `target_type` (proposal, rule or result set), `target_id`, `decision`, `edited_value`, `reviewer`, `comment`, `decided_at` | Reviewers |
+| `decision` | One decision, by a person or by a written policy a person signed off, never edited afterwards | decision\_id, target\_type (proposal, rule, action, action\_option or result\_set), target\_id (a proposal\_key for proposals), decision, edited\_value, reviewer (a person's name, or "Catalogue policy" for the seeded catalogue actions), comment, run\_id, decided\_at | Reviewers, seed job |
 | `result_set` | All results of one run | `result_set_id`, `run_id`, `status` (draft, in review, approved, published, superseded), `approved_by`, `published_at` | Runner, reviewers |
-| `metric` | One result number | `metric_id`, `result_set_id`, `name`, `unit`, `value`, `region`, `crop`, `scenario`, `period`, `lineage` (artifact ids and the filter that selects the contributing rows), `assumption_ids` | Model and pricing steps |
-| `action_option` | One possible action and what it buys | `action_id`, `result_set_id`, `name`, `region`, `crop`, `cost_eur_per_yr`, `risk_reduced_eur_per_yr`, `emissions_change_t`, `assumption_ids`, `confidence`, `status` | Action step, reviewers |
-| `action_definition` | One action in the catalogue, or one proposed by the agent | action\_id, name, driver, applies\_at (step), override, scope (region, crop), cost and its source, confidence, proposed\_by, status (proposed, approved to run, rejected) | Experts, action proposer agent |
+| `metric` | One result number | metric\_id, result\_set\_id, name, unit, value, region, crop, scenario (climate scenario), ngfs\_scenario (transition scenario), period, lineage (see Lineage filter), assumption\_ids | Model and pricing steps |
+| `action_option` | One action's priced what-if result | option\_id (opt\_…), action\_id, result\_set\_id, run\_id (the what-if run), name, region, crop, cost\_eur\_per\_yr, risk\_reduced\_eur\_per\_yr, emissions\_change\_t, assumption\_ids, confidence. Recommended, considered or rejected comes from its latest decision. | Action step, reviewers |
+| `action_definition` | One action in the catalogue, or one proposed by the agent | action\_id (act\_…), name, short\_name, driver, applies\_at (step), override (one typed operation, see Actions and what-if runs), scope (region, crop), cost and its source, confidence, proposed\_by. Proposed, approved to run or rejected comes from its latest decision. | Seed job (catalogue), action proposer agent |
+| `insight` | One finding that is not a priced metric, such as the Foodhills supply hedge | insight\_id (ins\_…), result\_set\_id, step, title, text (numbers only as metric tokens), metric\_ids | Model and pricing steps |
+| `report` | One draft of a result set's report; every report run writes a new one | report\_id (rep\_…), result\_set\_id, run\_id, version, paragraphs (each its text with metric and insight tokens, and the call\_id that wrote it), status (draft, superseded or published), created\_at | Report runs, reviewers |
+| `llm_call` | One call to the LLM | call\_id (call\_…), run\_id, agent, model, prompt\_version, input\_hash, output\_hash, attempt, status (ok, retried, failed or fake model), error, created\_at | LLM wrapper |
 
 Rules that keep the audit trail honest:
 
 1. Raw artifacts are never overwritten. Cleaned artifacts are always rebuilt as raw data plus approved proposals, so any run can be replayed from the same inputs.
 2. Record keys use the package's formats, for example `farm_survey:FS02175`, `erp:4500002962:10` and `energy:S-SAK:2025-03:electricity`. A key means the same row in every table and screen.
-3. `decision` is append-only. The current status of a proposal or result set is its latest decision.
+3. `decision` is append-only. The current status of a proposal, rule, action, action option or result set is its latest decision.
 4. Every `metric` carries enough lineage to list its contributing rows, and every number in a report points to a `metric`.
+
+### Step contract
+
+Every recipe step is a function with this signature, defined in `backend/src/navigator/recipes/core.py`:
+
+```python
+@step("tune_calendar", kind="model", summary="Picks the sowing temperature ...")
+def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) -> StepResult: ...
+```
+
+- `Artifact` is one table: `name`, `layer` (raw, clean, feature or result), `frame` (a DataFrame) and `artifact_id` once stored. A table's name is how later steps ask for it, and it is unique within a run.
+- `RunContext` carries `run_id`, `recipe_id` and `sources`, the package files by path. Only `load_raw` reads `sources`.
+- `params` are the step's params from the recipe, with any overrides queued with the run.
+- The recipe definition lists the tables each step reads. The input named `proposals` is filled by the runner with this run's proposals and their current status (open, approved, rejected or flag).
+- `StepResult` holds `tables` (the artifacts the step writes), `proposals` (a table with the columns below, or none), `decisions` (approvals under a policy a person signed off; recipe 1 writes none), `rules` (one row per rule: rule\_id, version, description, author, backtest), `assumptions` (each input value used, with its unit and source), and in later milestones `metrics` and `insights`.
+
+### Proposal columns
+
+| Column | Meaning |
+| --- | --- |
+| `proposal_key` | Rule, record key and field joined with a vertical bar, for example `R1\|farm_survey:FS02175\|yield_t_ha`. The same in every run. |
+| `rule_id`, `issue_type` | The rule and the kind of problem, for example `R2` and `decimal_shift` |
+| `table`, `record_key`, `field` | The raw table, the record in the package's key format, and the column |
+| `old_value`, `new_value` | As text. Empty `new_value` for a flag. |
+| `action` | `fix` or `flag` |
+| `evidence` | JSON: a one-line `summary`, the `record_keys` it rests on, the `query` that reproduces it, and named `values` (for example `{"ratio_to_median": 9.8}`) that explanations cite as evidence tokens |
+| `explanation` | The review explainer's text, with numbers only as evidence tokens such as `{{ev:ratio_to_median}}` |
+| `proposer` | `rule R1`, or `agent:fix-proposer` with its call id |
+
+### Lineage filter
+
+A metric's `lineage` is a list of entries, each naming one artifact and a filter on its columns:
+
+```json
+[
+  {"artifact": "art_01JC...", "filter": {"region": "FI_SW", "crop": "pea", "scenario": "ssp585", "year": {"min": 2041, "max": 2060}}},
+  {"artifact": "art_01JD...", "filter": {"farm_id": ["F0012", "F0040"]}}
+]
+```
+
+- Every key is a column of that artifact. A value is a single value, a list (any of them) or a range with `min`, `max` or both, inclusive. Keys combine with AND, and an empty filter means the whole table.
+- The API builds the SQL itself, using only the artifact's own column names and passing every value as a parameter. Steps never write SQL into lineage.
+- Corrections need no entry of their own. Every cleaned row keeps its `record_key` and `n_corrections`, so the drill-down finds the decisions applied to the contributing rows by record key.
+- The side panel and the report's disclosure groups show a filter in plain words built from the glossary, for example "Pea, South-west Finland, High emissions (SSP5-8.5), seasons 2041 to 2060".
 
 ## Recipe 1: farm climate risk
 
-Twelve steps take the raw package to an approved report on how much climate change could cost Apetit's contract farming, and what to do about it. Steps 1 to 10 already exist in the `notebooks` repo and only need refactoring into step functions.
+Ten steps take the raw package to approved risk results on how much climate change could cost Apetit's contract farming, and what to do about it. Steps 1 to 6 are refactored into step functions (milestone 1). Steps 7 to 10 still live in the notebooks named in the table, in the monorepo's `notebooks/` folder.
 
 | # | Step | Reads | Writes | Kind | Status |
 | --- | --- | --- | --- | --- | --- |
-| 1 | `load_raw` | Package files | `source_file` rows; raw artifacts | Load | Built (`c1_clean`) |
-| 2 | `check_farm_data` | Raw farm survey, registry, parcels, Foodhills file | Proposals from rules R1–R5, plus agent proposals for anything the rules miss | Propose | Rules built; agent new |
-| 3 | `apply_approved` | Raw artifacts, approved proposals | Cleaned farm survey, registry and Foodhills tables | Transform | Built |
-| 4 | `spatial_join` | Parcels, weather grid, crop history | Parcel-to-cell map; parcel-year table 2012–2031 | Transform | Built |
-| 5 | `weather_features` | Daily weather, parcel-years | Stress measures per cell, soil, crop, year and scenario | Transform | Built (`c1_weather_features`) |
-| 6 | `tune_calendar` | Features, cleaned yields, ERP deliveries | Crop parameters per region and crop; tuning record | Model | Built |
-| 7 | `fit_yield_model` | Farm-year model table | Coefficients per region and crop; backtest error by season | Model | Built (`c1_yield_model`) |
-| 8 | `project_yields` | Model, 2025 contract parcels, weather for 1991–2020 and 2041–2060 | Yield change, chance of a bad year and shortfall distribution per region, crop and scenario | Model | Built (`c2_yield_projection`) |
-| 9 | `price_risk` | Shortfalls, contract prices, import premiums, contracted volumes, emission factors | Expected cost per year and cost in a 1-in-10 bad year, in euros; extra emissions from replacement imports | Transform | Built (`c3_risk_pricing`) |
-| 10 | `compare_actions` | Risk results, levers, assumptions | Action options with cost, risk removed and emissions change | Model | Built (`c4_actions`) |
-| 11 | `draft_report` | Approved metrics, actions and assumptions | Report draft where every number cites a metric | LLM | New |
-| 12 | `review_and_publish` | Draft report, result set | Published result set and report | Human | New |
+| 1 | `load_raw` | Package files in object storage | One raw table per package file the recipe uses | Load | Refactored from `c1_clean.ipynb` |
+| 2 | `check_farm_data` | Raw farm survey, registry, parcels, crop history, 2023–24 labels | Proposals from rules R1–R5 with their backtest; later, agent proposals | Propose | Rules refactored from `c1_clean.ipynb`; agent new |
+| 3 | `apply_approved` | Raw tables, this run's proposals with their status | Cleaned farm survey, registry and Foodhills tables | Transform | Refactored from `c1_clean.ipynb` |
+| 4 | `spatial_join` | Parcels, weather grid, crop history, cleaned tables | Parcel-to-cell map; parcel-year table 2012–2031; farm-year training table | Transform | Refactored from `c1_clean.ipynb` |
+| 5 | `tune_calendar` | Daily weather, training table, parcel-years, ERP deliveries | Crop calendar per region and crop; tuning record and choice | Model | Refactored from `c1_weather_features.ipynb` |
+| 6 | `weather_features` | Daily weather, crop calendar, training table, parcel-years | Stress measures per cell, soil, crop, season and climate scenario; parcel-year and farm-year model tables | Transform | Refactored from `c1_weather_features.ipynb` |
+| 7 | `fit_yield_model` | Farm-year model table | Coefficients per region and crop; backtest error by season | Model | In `c1_yield_model.ipynb` |
+| 8 | `project_yields` | Model, 2025 contract parcels, weather for 1991–2020 and 2041–2060 | Yield change, chance of a bad year and shortfall distribution per region, crop and climate scenario | Model | In `c2_yield_projection.ipynb` |
+| 9 | `price_risk` | Shortfalls, contract prices, import premiums, contracted volumes, emission factors | Expected cost per year and in a 1-in-10 bad year, in euros; extra emissions from replacement imports; the Foodhills insight | Transform | In `c3_risk_pricing.ipynb` |
+| 10 | `compare_actions` | Risk results, approved actions, assumptions | Action options with cost, risk removed and emissions change | Model | In `c4_actions.ipynb` |
+
+Drafting the report and publishing are not recipe steps. Drafting is a report run (see Run lifecycle and live events), and review and publishing are states of the result set.
 
 What the new steps compute:
 
 - `fit_yield_model`: the within-farm model already used for tuning. Log yield equals the farm's own level plus the weather and management effects. It is checked season by season on held-out years and reports its error next to the farm-average baseline.
-- `project_yields`: there is only one weather run per scenario, so we build an ensemble. Take each historical season from 1991–2020, shift its temperature and scale its rain by the monthly changes in `climate_change_signals.csv` for that scenario, and recompute evaporation with the same Hargreaves formula the package uses. Run the 30 shifted seasons per cell through the features and the model, with today's parcels, management and the trend held at 2026, and simulate each season 50 times with the model's leftover error. A bad year is a yield under 80% of the 1991–2020 average, the package's own definition. The single delivered run for each scenario serves as a check.
-- `price_risk`: contracted volume is the 2025 contract area times the normal yield of today's farms, from the model on 1991–2020 weather. The shortfall in a season is the volume below that. Its extra cost is the shortfall times the contract price times the replacement premium, using `contract_prices_and_replacement_premiums.csv` and the import-premium paths in `transition_scenarios.csv` for the matching NGFS scenario. Extra emissions are the shortfall times the full import emission factor, because the domestic fields are farmed either way. Shortfalls are priced as market imports only; Foodhills supply is reported as an insight, not counted.
-- `compare_actions`: each approved action spec is run as a what-if on top of the approved run, then priced (see Actions and what-if runs). Start with four. Irrigation for potato and carrot uses lever L24 for cost and the model's irrigation effect for benefit. Earlier sowing moves the earliest sowing date by 7 or 14 days. The Finland–Sweden pea split is valued by how often bad years coincide in the two regions. New growers are sought in the lowest-risk weather cells.
+- `project_yields`: there is only one weather run per scenario, so we build an ensemble. Take each historical season from 1991–2020, shift its temperature and scale its rain by the monthly changes in `climate_change_signals.csv` for that scenario, and recompute evaporation with the same Hargreaves formula the package uses. Run the 30 shifted seasons per cell through the features and the model, with today's parcels, management and the trend held at 2026, and simulate each season 50 times with the model's leftover error, drawn with a fixed random seed (2026; the bootstrap of differences uses seed 7). Both seeds are params, recorded as assumptions on every run, which is what lets the golden test match to the cent. A bad year is a yield under 80% of the 1991–2020 average, the package's own definition. The single delivered run for each scenario serves as a check.
+- `price_risk`: contracted volume is the 2025 contract area (the parcels declared for 2025 in parcel\_crop\_history\_and\_plan.csv) times the normal yield of today's farms, from the model on 1991–2020 weather (1996–2025 weather changes it by under 2%, kept as a sensitivity). The shortfall in a season is the volume below that. Its extra cost is the shortfall times the contract price times the replacement premium, using `contract_prices_and_replacement_premiums.csv` and the import-premium paths in `transition_scenarios.csv` for each NGFS (transition) scenario, matched to its climate scenario by that file's physical\_pathway\_proxy column. Extra emissions are the shortfall times the full import emission factor, because the domestic fields are farmed either way. The factors per region and crop are in notebooks/results/import\_ef.json, from 0.31 t CO2e per tonne for carrot to 1.35 for turnip rape. Shortfalls are priced as market imports only; Foodhills supply is written as an insight (see Data model), not counted.
+- `compare_actions`: each approved action spec is run as a what-if on top of the approved run, then priced (see Actions and what-if runs). On the first run the six catalogue actions are already approved, by the Catalogue policy at seeding, so the step always has something to price. The catalogue and what each action changes are under Actions and what-if runs.
 
-Every assumption these steps use (prices, premiums, the 80% threshold, lever costs, ensemble size) is a row in `assumption`, shown to the reviewer and changeable by starting a new run.
+Every assumption these steps use (prices, premiums, the 80% threshold, lever costs, ensemble size, random seeds) is a row in `assumption`, shown to the reviewer and changeable by starting a new run.
 
 ## Recipe 2: energy-meter check
 
@@ -539,28 +597,37 @@ An action never edits the raw data. It is an override on the model's inputs, app
 How an action gets from idea to report:
 
 1. Find the drivers. The risk step splits each crop's loss into its weather drivers, for example heat at flowering for Finnish pea and warmer Mays for turnip rape.
-2. Propose candidates. The action proposer (an LLM agent) matches each driver to options in the action catalogue and writes each as a structured action spec. The catalogue starts from the package's lever list, plus adaptation actions that experts add. The agent may also suggest actions outside the catalogue; those are flagged as new and need a person to set their cost and effect.
-3. Approve what to run. A person picks which candidates are worth running, in a review queue like the one for data fixes.
+2. Propose candidates. The action proposer (an LLM agent) matches each driver to options in the action catalogue and writes each as an action spec whose override is one of the four typed operations below, with params that pass the schema. The catalogue starts from the package's lever list, plus adaptation actions that experts add. An idea no operation can express is flagged as new: it is listed for people to read, but it never runs as a what-if.
+3. Approve what to run. A person picks which candidates are worth running, in a review queue like the one for data fixes. The six catalogue actions are seeded already approved, recorded as decisions by the Catalogue policy, so the first run has actions to price; step 10 refuses any it cannot price, such as irrigation for Finnish pea.
 4. Run and price. The engine runs each approved action as a what-if run and prices it. The agent never calculates the effect.
 5. Draft the recommendation. The report drafter writes what to do, for which crops and regions, who should own it and what it buys, with every number linked to the what-if run.
 6. Results review, as for the risk figures, then the report.
 
-An action spec, as the proposer writes it and the runner reads it. The cost here is a placeholder, not a real figure.
+An action spec, as it sits in config/actions/catalogue.json and as the proposer must write it. Status is not part of the spec; it comes from the latest decision.
 
 ```json
 {
-  "action_id": "A-relocate-fi-pea",
-  "name": "Move 20% of Finnish pea area to the lowest-risk farms",
+  "action_id": "A1-relocate-fi-pea",
+  "short_name": "Relocate 20% of Finnish pea area",
+  "name": "Move 20% of Finnish pea area from the highest-loss to the lowest-loss farms",
   "driver": "heat at flowering, Finnish pea",
   "applies_at": "project_yields",
-  "override": {"parcels": "drop the 20% of FI pea area with the highest projected loss; add equal area on the lowest-loss farms"},
-  "scope": {"region": "FI_SW", "crop": "pea"},
-  "cost": {"eur_per_year": 15000, "source": "assumption: grower recruitment and advisory"},
-  "confidence": "medium: yield effect from the model, cost assumed",
-  "proposed_by": "agent:action-proposer, model and prompt version",
-  "status": "proposed"
+  "override": {"type": "relocate_area", "share": 0.2},
+  "scope": {"units": [["FI_SW", "pea"]]},
+  "cost": {"eur_per_year": null, "source": "not in the package; reported as the break-even cost"},
+  "confidence": "medium: yield effect from the model; recruitment and advisory cost unknown",
+  "proposed_by": "catalogue"
 }
 ```
+
+The four operations the engine can run. Each is deterministic; the agent only chooses one and fills in its params.
+
+| Operation | Params | What the engine does | Applies at |
+| --- | --- | --- | --- |
+| `relocate_area` | `share` (0 to 1) | Moves that share of the unit's 2025 contract area from the farms with the highest projected loss to those with the lowest | `project_yields` |
+| `set_irrigated` | `value` (0 or 1) | Sets the irrigation input for every farm in scope | `project_yields` |
+| `shift_sowing` | `days` (negative is earlier) | Moves the earliest sowing date and rebuilds the weather features | `weather_features` |
+| `scale_feature` | `feature` (a model feature), `factor` | Multiplies that stress measure, for example heat days at flowering, by the factor | `project_yields` |
 
 Which actions the data can price today:
 
@@ -570,7 +637,7 @@ Which actions the data can price today:
 | Irrigation for more potato and carrot growers | Set more farms to irrigated; cost from lever L24 | Partly: most of these growers irrigate already |
 | Earlier sowing | Move the earliest sowing date 7 or 14 days | Weak: no history sown that early, frost not modelled; a labelled what-if |
 | Heat-tolerant pea varieties | Reduce heat damage at flowering by an assumed share | Assumption only: no variety data |
-| Finland–Sweden pea sourcing | Not run; reported as an insight from step 9 | Depends on Bjuv's capacity, which is unknown |
+| Finland–Sweden pea sourcing | Not run; written as an insight by step 9 | Depends on Bjuv's capacity, which is unknown |
 
 Finnish pea and turnip rape growers never irrigate in the data, so the model has no estimate of what irrigation would do for them.
 
@@ -580,52 +647,44 @@ Four agents do the reading and writing a person would otherwise do. None of them
 
 | Agent | Job | Reads | Writes | Tools |
 | --- | --- | --- | --- | --- |
-| Fix proposer | Finds problems the rules miss in a raw table, and suggests new rules | Table schema, column statistics, samples, the rule library, labelled examples from 2023–24 | `proposal` rows with evidence; `rule` rows with code | Read-only queries on raw artifacts; a sandbox that backtests a proposed rule on the labels |
+| Fix proposer | Finds problems the rules miss in a raw table, and suggests new rules | Table schema, column statistics, samples, the rule library, labelled examples from 2023–24 | `proposal` rows with evidence; `rule` rows with code | Read-only queries on raw artifacts; the sandbox service, which backtests a proposed rule on the labels and, once it is approved, runs it |
 | Review explainer | Explains each queued proposal in two or three plain sentences | One proposal and its evidence | `proposal.explanation` | None |
-| Report drafter | Writes the decision summary from approved results, and answers follow-up questions | Approved metrics, actions and assumptions; `framework_digest.md` for framework context | Report draft with citation tokens | Metric lookup; search over the framework digest |
+| Report drafter | Writes the report's text from approved results, one paragraph per call. It does not answer questions; people explore through the report's dashboard and disclosure groups | Approved metrics, actions and assumptions; `framework_digest.md` for framework context | A numbered draft in the report table, with metric and insight tokens | Metric lookup; search over the framework digest |
 | Action proposer | Turns the drivers of each crop's loss into candidate actions, written as action specs | Loss drivers per crop and region, the action catalogue, the package's lever list | `action_definition` rows with status proposed | Catalogue search; read-only access to risk results |
 
 Guardrails, enforced in code rather than in the prompt:
 
-1. Every agent output is validated against a JSON schema before it is stored. A failed validation is logged and dropped.
-2. Evidence must name the record keys and the query that produced it. The runner re-runs the query, and a proposal whose evidence does not reproduce is rejected automatically.
-3. A proposed rule goes to review with its backtest attached: how many labelled issues it catches and how many correct records it flags. It runs in recipes only after a person approves it.
-4. The explainer may only use numbers that appear in the evidence. A check compares every number in its text with the evidence and rejects the explanation if one is new.
-5. The drafter writes numbers as tokens such as `{{metric:m_0412}}`, which the app fills from the `metric` table. A draft that contains any other figure, apart from years and scenario names, is sent back.
-6. Each call is logged with the model name, prompt version and input hashes, so a report can say which model wrote which sentence.
+1. Every agent output is checked against its JSON schema and the prose check before it is stored. A failure goes back to the model with the error, at most twice. After that the call is recorded as failed and shows in its queue.
+2. Evidence names the record keys and the query that produced it. The runner re-runs the query, and a proposal whose evidence does not reproduce is rejected automatically.
+3. A rule proposed by an agent goes to review with its backtest attached: how many labelled issues it catches and how many correct records it flags. Its code runs only after a person approves it, and only in the sandbox service.
+4. The explainer never types a number. It writes evidence tokens such as `{{ev:ratio_to_median}}`, which the app fills from the proposal's evidence values. A token that names no value fails the check.
+5. The drafter never types a number either. It writes metric and insight tokens such as `{{metric:met_01JC...}}` and `{{insight:ins_01JC...}}`, which the app fills. A draft with any other figure, apart from years and scenario names, fails the check.
+6. One call writes one paragraph or one explanation. Each call is logged in `llm_call` with the model, prompt version and input and output hashes, so every paragraph points to the call that wrote it. The published report's method section lists the models and prompt versions used. Screens label agent text "Suggested by the assistant" without naming the model.
+7. If the Gemini key fails or its quota runs out, the wrapper switches to the fake model the tests use, and the call log records the switch.
 
 ## App screens
 
 Six screens cover the demo. The two review screens and the risk view matter most; the others can stay plain.
 
-The app is a standalone web app. A FastAPI backend serves the data, and a separate worker runs the recipe steps and the LLM calls, so keys never reach the browser. A React frontend talks to it only through the agreed API. Assumptions are changed in forms, numbers open to their sources with a click, and tables export to Excel, so the sustainability specialist never meets code.
-
 | Screen | Who uses it | What it shows | What they can do |
 | --- | --- | --- | --- |
 | Runs | Data specialist | Each run with its recipe version, status and step timeline; inputs and outputs per step | Start a run; open any artifact |
 | Data review | Data specialist | Proposals filtered by rule, table and status. Detail view: the record, old and new value, evidence with linked rows, the explainer's text | Approve, edit or reject with a comment; approve a whole rule's batch (logged as one decision per item) |
-| Rule proposals | Data specialist | Rules the agent suggested, with their code and backtest on the labelled history | Approve or reject |
+| Rule proposals | Data specialist | Rules the agent suggested, with their code and backtest on the labelled history; approved code runs only in the sandbox | Approve or reject |
 | Risk view | Sustainability specialist, sourcing | Cost per year and in a 1-in-10 bad year by crop, region and scenario; chance of a bad year; extra emissions from replacement imports | Open any number to see its contributing farms, parcels, weather cells and raw rows, with the corrections applied to them; view and change assumptions, which starts a new run |
 | Actions | Sustainability specialist, sourcing | Options with cost, risk removed and emissions change, and the assumptions behind each | Approve which proposed actions to run; mark results recommended, considered or rejected, with a comment |
-| Report | Sustainability specialist, management | The drafted summary, every number linked to its metric | Approve and publish; export as PDF or Markdown |
+| Report | Sustainability specialist, management | An interactive page: the drafted text, a dashboard of its key metrics and insights, and every number opening a disclosure group with its lineage (tables, filter in plain words, contributing rows, corrections and assumptions) | Approve and publish; redraft; export as Markdown, or as PDF through the browser's print with every disclosure group open |
 
 ## Work split
 
-Five workstreams, one person each, can run in parallel once four interfaces are fixed in the first hour: the table schemas above, the proposal JSON schema, the step signature and the API contract (OpenAPI) between backend and frontend.
-
-The step signature every recipe step follows:
-
-```python
-def step(ctx: RunContext, inputs: dict[str, Artifact], params: dict) -> StepResult:
-    # StepResult holds output tables (DataFrames), proposals, metrics and assumptions used
-```
+Five workstreams, one person each, build in parallel against four interfaces: the table schemas, the proposal columns and the step contract (all under Data model), and the API contract in docs/openapi.json. All four now exist in the repo; change them only through their owner.
 
 | Workstream | Builds | Suggested owner | Needs from others | Done when |
 | --- | --- | --- | --- | --- |
-| Core and lineage | FastAPI backend and API contract, Postgres schema and migrations, the queue worker and runner, the MinIO artifact store, the Docker Compose stack and the seed job, replay of raw plus approved proposals, what-if runs with action overrides; refactors steps 1–10 from the notebooks into step functions | Strongest Python and data person | Nothing | A run of steps 1–6 shows in the Runs screen with every artifact registered |
-| Risk module | Steps 7–10: yield model, scenario ensemble, pricing, actions | Whoever knows the notebooks best | Step signature; features from step 5 | Euros at risk per crop, region and scenario, with lineage, for all three scenarios |
-| Data agents | Fix proposer, rule backtest sandbox, review explainer; recipe 2 checks | LLM builder 1 | Proposal schema; raw artifacts | Agent proposals appear in the Data review queue with reproducible evidence |
-| Report agent and app | Report drafter, action proposer, citation tokens; the six screens as a React web app, built against mock API data until the backend is ready | LLM builder 2 | Metric and decision tables | Approving a report publishes it, with every number linked |
+| Core and lineage | FastAPI backend and API contract, Postgres schema and migrations, the queue worker and runner, the MinIO artifact store, the Docker Compose stack and the seed job, replay of raw plus approved proposals, what-if runs with action overrides; steps 1–6 refactored from the notebooks (milestone 1) | Strongest Python and data person | Nothing | A run of steps 1–6 shows in the Runs screen with every artifact registered |
+| Risk module | Steps 7–10: yield model, scenario ensemble, pricing, actions | Whoever knows the notebooks best | Step contract; features from step 6 | Euros at risk per crop, region and scenario, with lineage, for all three scenarios |
+| Data agents | Fix proposer, the sandbox service, review explainer with evidence tokens, the LLM wrapper with its retries, prose check and fake-model fallback; recipe 2 checks | LLM builder 1 | Proposal schema; raw artifacts | Agent proposals appear in the Data review queue with reproducible evidence |
+| Report agent and app | Report drafter, action proposer, citation tokens; the six screens as a React web app, with the interactive report page, built against mock API data until the backend is ready | LLM builder 2 | Metric and decision tables | Approving a report publishes it, with every number linked |
 | Recipe 2, docs and demo | Energy-meter recipe, the Vultr VM with Caddy and the shared password, README with usage instructions, method note, Fabric mapping, demo script and recording | Fifth person | Runner from core | A new person can run the demo from the README alone, and the app runs on the VM |
 
 Order of milestones, each a gate for the next:
@@ -633,7 +692,7 @@ Order of milestones, each a gate for the next:
 1. Skeleton: steps 1–6 run through the runner and land in the schema.
 2. Numbers: steps 7–9 produce risk in euros for every crop, region and scenario.
 3. Review loop: a proposal approved in the app changes the cleaned tables on the next run.
-4. Actions and report: steps 10–12 work end to end, and a published report links every number.
+4. Actions and report: step 10 and the report run work end to end, and a published report links every number.
 5. Freeze: a recorded demo run and finished docs. No new features after this point.
 
 ## Deliverables and demo
@@ -652,19 +711,15 @@ Demo script:
 2. Start a run of recipe 1 from the raw package and show its steps completing.
 3. Data review: open an agent proposal, read its evidence and explanation, approve it. Reject another and say why.
 4. Risk view: cost per year for each crop and region under the three climate scenarios. Click one figure and follow it down to farms, weather cells and the raw survey rows, including the correction just approved.
-5. Actions: compare irrigation, earlier sowing and the Finland–Sweden pea split on cost and risk removed.
-6. Report: show the draft with its linked numbers, approve it and publish.
+5. Actions: compare irrigation, relocation, earlier sowing and heat-tolerant pea on cost and risk removed, and show the Foodhills supply insight.
+6. Report: open the interactive report, expand a number to its lineage, approve it and publish.
 7. The path to production: the same layers on Fabric, and the next recipes (GHG inventory, SBTi pathways, nature impacts in lake catchments) on the same base.
 
 ## Open questions
 
-Two are still open: the submission deadline and who plays the reviewer. The others are decided and kept here as a record.
+Two are still open: the submission deadline and who plays the reviewer. Decisions made along the way are recorded in the sections they affect.
 
 | Question | Recommendation | Why it matters |
 | --- | --- | --- |
 | When exactly is the submission deadline, and is the demo live or recorded? | Check the event guide today | Sets the freeze time |
-| Which LLM provider and API keys do we have, and with what usage limit? | Decided: Gemini through an AI Studio key, behind a thin internal wrapper; the production LLM is still open | Agents depend on it; Apetit prefers Azure |
-| Which app framework? | Decided: a standalone web app. A FastAPI backend in Python over the recipe code and DuckDB, a React (Vite) frontend with a component library, and the API contract (OpenAPI) agreed first | Easier for people who don't code; deploys on Azure App Service; frontend and backend can be built in parallel against the contract |
-| Which import emission factor replaces a pea shortfall? | Decided: Swedish farm-gate pea factor plus the package's Belgian frozen-vegetable route, 0.49 t CO2e per t | Drives the extra emissions in step 9 |
-| How do we measure contracted volume per crop? | Decided: 2025 contract area times today's normal yield on 1991–2020 weather; 1996–2025 differs by under 2% and is a sensitivity | Sets the size of every shortfall |
 | Who plays the reviewer in the demo? | One team member, named on screen as the approver | Shows that a named person signs off |

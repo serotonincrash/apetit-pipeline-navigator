@@ -32,10 +32,11 @@ Tools, all run by pre-commit hooks before each commit:
 | Area | Tool | Setting |
 | --- | --- | --- |
 | Python lint and format | ruff | Rule sets E, F, I, B, UP, SIM and RUF; line length 100; `ruff format` |
-| Python types | pyright | Strict on `navigator/`, basic on `tests/` |
+| Python types | pyright | Strict on `navigator/`, except `analysis/`, which is basic until it is typed; basic on `tests/` |
 | TypeScript lint and format | Biome | Recommended rules, `noExplicitAny` as an error |
 | TypeScript types | tsc | `strict` and `noUncheckedIndexedAccess` on |
 | Golden tests | pytest | The golden-number tests from Testing |
+| Prose | `scripts/check_prose.py` | The writing standards' banned patterns and word limits, on annotations, UI strings and prompt files |
 
 The standards in this section and Writing standards, plus the glossary, are copied into `AGENTS.md` at the repo root, so every coding agent works from the same rules.
 
@@ -77,6 +78,8 @@ Generated interfaces tend to look alike: every page a grid of identical cards wi
 ## Writing standards
 
 Three kinds of text reach people: the annotations on steps and sections in the recipe code, the text the agents write at runtime, and the copy in the web app. The readers are the two specialists and Apetit's management. They know farming and the numbers, and most of them don't read code.
+
+The rules are checked automatically. `scripts/check_prose.py` looks for em dashes, symbol shorthand in sentences, the banned words and the word limits. Pre-commit runs it on step annotations, UI strings and prompt files. The LLM wrapper runs it on every agent text, where a breach counts as a failed validation (sent back at most twice, then failed).
 
 Rules for all three:
 
@@ -128,7 +131,7 @@ Each agent returns structured JSON, and its free-text fields follow the rules ab
 | Agent | Field | Limit | What it must contain |
 | --- | --- | --- | --- |
 | Fix proposer | explanation | 60 words | What looks wrong, the evidence (record keys), the proposed fix, what happens if it is rejected |
-| Review explainer | explanation | 80 words | Why the rule fired, with the values that made it fire |
+| Review explainer | explanation | 80 words | Why the rule fired, with the values that made it fire written as evidence tokens such as {{ev:ratio\_to\_median}}, never as typed numbers |
 | Action proposer | rationale | 80 words | The driver it targets, how the override models it, the cost and its source |
 | Report drafter | each paragraph | 120 words | Findings as citation tokens to metrics, never typed numbers |
 
