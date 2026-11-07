@@ -1,14 +1,30 @@
 """Shared fixtures for golden tests: the challenge package read from disk, as the runner would
-serve it from object storage."""
+serve it from object storage, and steps 1 to 4 chained the way the runner chains them."""
 
 import hashlib
 import os
 from collections.abc import Iterator, Mapping
 from pathlib import Path
+from typing import Any
 
+import numpy as np
+import pandas as pd
 import pytest
 
-from navigator.recipes.core import RunContext, SourceFile
+from navigator.recipes.core import (
+    PROPOSALS_INPUT,
+    Artifact,
+    RunContext,
+    SourceFile,
+    StepFunction,
+    StepResult,
+    StepSpec,
+)
+from navigator.recipes.farm_climate_risk import RECIPE
+from navigator.steps.apply_approved import apply_approved
+from navigator.steps.check_farm_data import check_farm_data
+from navigator.steps.load_raw import load_raw
+from navigator.steps.spatial_join import spatial_join
 
 
 class DiskPackage(Mapping[str, SourceFile]):
@@ -39,3 +55,73 @@ def ctx(package_root: Path) -> RunContext:
     return RunContext(
         run_id="run_golden", recipe_id="farm_climate_risk", sources=DiskPackage(package_root)
     )
+
+
+def recipe_step(name: str) -> StepSpec:
+    return next(spec for spec in RECIPE.steps if spec.name == name)
+
+
+def run_step(
+    ctx: RunContext, func: StepFunction, name: str, tables: Mapping[str, Artifact]
+) -> StepResult:
+    """One step with its recipe params and the inputs the recipe names, as the runner calls it."""
+    spec = recipe_step(name)
+    return func(ctx, {n: tables[n] for n in spec.inputs}, spec.params)
+
+
+def _as_text(value: Any) -> Any:
+    """Proposal values as the runner stores them: text, with missing values left empty."""
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return None
+    return value if isinstance(value, str) else str(value)
+
+
+def proposals_input(check: StepResult) -> pd.DataFrame:
+    """The `proposals` input the runner builds after check_farm_data when no person has decided
+    yet: fixes the rule policy approved are approved, flags stay flags, the rest are open."""
+    assert check.proposals is not None and check.decisions is not None
+    proposals = check.proposals
+    columns = [
+        "proposal_key",
+        "rule_id",
+        "issue_type",
+        "table",
+        "record_key",
+        "field",
+        "old_value",
+        "new_value",
+        "action",
+    ]
+    frame = pd.DataFrame({c: [_as_text(v) for v in proposals[c]] for c in columns})
+    approved = proposals["proposal_key"].isin(check.decisions["proposal_key"])
+    frame["status"] = np.where(
+        proposals["action"].eq("flag"), "flag", np.where(approved, "approved", "open")
+    )
+    return frame
+
+
+@pytest.fixture(scope="session")
+def raw_tables(ctx: RunContext) -> dict[str, Artifact]:
+    loaded = run_step(ctx, load_raw, "load_raw", {})
+    return {table.name: table for table in loaded.tables}
+
+
+@pytest.fixture(scope="session")
+def farm_checks(ctx: RunContext, raw_tables: dict[str, Artifact]) -> StepResult:
+    return run_step(ctx, check_farm_data, "check_farm_data", raw_tables)
+
+
+@pytest.fixture(scope="session")
+def clean_tables(
+    ctx: RunContext, raw_tables: dict[str, Artifact], farm_checks: StepResult
+) -> dict[str, Artifact]:
+    """Every table steps 1 to 4 write, plus the `proposals` input, by name."""
+    tables = dict(raw_tables)
+    tables.update({table.name: table for table in farm_checks.tables})
+    tables[PROPOSALS_INPUT] = Artifact(
+        name=PROPOSALS_INPUT, layer="result", frame=proposals_input(farm_checks)
+    )
+    for func, name in ((apply_approved, "apply_approved"), (spatial_join, "spatial_join")):
+        result = run_step(ctx, func, name, tables)
+        tables.update({table.name: table for table in result.tables})
+    return tables
