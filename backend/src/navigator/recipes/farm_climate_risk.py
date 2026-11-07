@@ -46,6 +46,9 @@ RECIPE = Recipe(
                 "r2_nitrogen_ratio_low": 0.2,
                 "r3_area_tolerance": 0.01,
                 "r4_organic_share_threshold": 0.30,
+                # How close a fixed value must be to the answer key's true value to count as a
+                # match in the backtest.
+                "backtest_value_tolerance": {"relative": 0.01, "absolute": 0.11},
                 "auto_approve": {
                     "min_precision": 1.0,
                     "min_value_match": 1.0,
@@ -80,6 +83,8 @@ RECIPE = Recipe(
                 "contract_crops": CONTRACT_CROPS,
                 "max_cell_distance_km": 20.0,
                 "max_farm_to_parcels_km": 10.0,
+                "template_area_tolerance_ha": 0.01,
+                "max_yield_ratio_to_median": 5.0,
             },
         ),
         StepSpec(
