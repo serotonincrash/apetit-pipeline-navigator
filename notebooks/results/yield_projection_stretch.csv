@@ -1,0 +1,7 @@
+unit,ssp126,ssp245,ssp585
+"Pea, Finland",5.3% (harvest_rain_14_mm),3.7% (harvest_rain_14_mm),2.5% (harvest_rain_14_mm)
+"Pea, Sweden",1.7% (harvest_rain_14_mm),2.7% (harvest_rain_14_mm),3.6% (harvest_rain_14_mm)
+"Turnip rape, Finland",5.4% (may_tmean_c),4.9% (may_tmean_c),6.1% (may_tmean_c)
+"Potato, Finland",2.0% (harvest_rain_14_mm),3.6% (harvest_rain_14_mm),3.1% (harvest_rain_14_mm)
+"Carrot, Finland",8.2% (drought_stage),9.6% (drought_stage),10.1% (heat_days_27)
+"Spinach, Finland",6.9% (harvest_rain_14_mm),7.6% (harvest_rain_14_mm),5.1% (harvest_rain_14_mm)

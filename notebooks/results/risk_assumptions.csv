@@ -1,0 +1,30 @@
+assumption,value,unit,source
+"contract price, Pea, Finland",420.0,EUR/t,"contract_prices_and_replacement_premiums.csv, pea, 2025"
+"replacement premium today, Pea, Finland",0.55,fraction of price,"contract_prices_and_replacement_premiums.csv, pea, 2025"
+"import emission factor, Pea, Finland",0.4884,t CO2e per t,emission_factor_library.csv farm-gate factor plus transport on package shipment routes (section 1)
+"contracted volume, Pea, Finland",7118.6,t,2025 contract parcels x model yield on 1991-2020 weather (c2_yield_projection)
+"contract price, Pea, Sweden",410.0,EUR/t,"contract_prices_and_replacement_premiums.csv, pea_SE, 2025"
+"replacement premium today, Pea, Sweden",0.55,fraction of price,"contract_prices_and_replacement_premiums.csv, pea_SE, 2025"
+"import emission factor, Pea, Sweden",0.4884,t CO2e per t,emission_factor_library.csv farm-gate factor plus transport on package shipment routes (section 1)
+"contracted volume, Pea, Sweden",17246.2,t,2025 contract parcels x model yield on 1991-2020 weather (c2_yield_projection)
+"contract price, Turnip rape, Finland",470.0,EUR/t,"contract_prices_and_replacement_premiums.csv, turnip_rape, 2025"
+"replacement premium today, Turnip rape, Finland",0.08,fraction of price,"contract_prices_and_replacement_premiums.csv, turnip_rape, 2025"
+"import emission factor, Turnip rape, Finland",1.3525,t CO2e per t,emission_factor_library.csv farm-gate factor plus transport on package shipment routes (section 1)
+"contracted volume, Turnip rape, Finland",7823.2,t,2025 contract parcels x model yield on 1991-2020 weather (c2_yield_projection)
+"contract price, Potato, Finland",230.0,EUR/t,"contract_prices_and_replacement_premiums.csv, potato, 2025"
+"replacement premium today, Potato, Finland",0.45,fraction of price,"contract_prices_and_replacement_premiums.csv, potato, 2025"
+"import emission factor, Potato, Finland",0.3284,t CO2e per t,emission_factor_library.csv farm-gate factor plus transport on package shipment routes (section 1)
+"contracted volume, Potato, Finland",10043.0,t,2025 contract parcels x model yield on 1991-2020 weather (c2_yield_projection)
+"contract price, Carrot, Finland",290.0,EUR/t,"contract_prices_and_replacement_premiums.csv, carrot, 2025"
+"replacement premium today, Carrot, Finland",0.4,fraction of price,"contract_prices_and_replacement_premiums.csv, carrot, 2025"
+"import emission factor, Carrot, Finland",0.3084,t CO2e per t,emission_factor_library.csv farm-gate factor plus transport on package shipment routes (section 1)
+"contracted volume, Carrot, Finland",12607.7,t,2025 contract parcels x model yield on 1991-2020 weather (c2_yield_projection)
+"contract price, Spinach, Finland",380.0,EUR/t,"contract_prices_and_replacement_premiums.csv, spinach, 2025"
+"replacement premium today, Spinach, Finland",0.6,fraction of price,"contract_prices_and_replacement_premiums.csv, spinach, 2025"
+"import emission factor, Spinach, Finland",0.3584,t CO2e per t,emission_factor_library.csv farm-gate factor plus transport on package shipment routes (section 1)
+"contracted volume, Spinach, Finland",8076.0,t,2025 contract parcels x model yield on 1991-2020 weather (c2_yield_projection)
+premium increase by 2041-60 for frozen vegetables,per NGFS scenario,percentage points,"transition_scenarios.csv frozen_veg_import_premium_pct, mean of 2045 and 2050 minus 2025 (illustrative values)"
+price level,2025,year,constant 2025 euros
+surplus credited,no,,design choice
+Foodhills supply as replacement,not counted,,design choice; see section 6
+domestic farm emissions in a shortfall,unchanged,,"fields are still sown, fertilised and harvested"

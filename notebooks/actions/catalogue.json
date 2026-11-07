@@ -1,0 +1,163 @@
+[
+  {
+    "action_id": "A1-relocate-fi-pea",
+    "short_name": "Relocate 20% of Finnish pea area",
+    "name": "Move 20% of Finnish pea area from the highest-loss to the lowest-loss farms",
+    "driver": "heat at flowering, Finnish pea",
+    "applies_at": "project_yields",
+    "override": {
+      "type": "relocate_area",
+      "share": 0.2
+    },
+    "scope": {
+      "units": [
+        [
+          "FI_SW",
+          "pea"
+        ]
+      ]
+    },
+    "cost": {
+      "eur_per_year": null,
+      "source": "not in the package; reported as the break-even cost"
+    },
+    "confidence": "medium: yield effect from the model; recruitment and advisory cost unknown",
+    "proposed_by": "team draft (stand-in for the action proposer agent)",
+    "status": "proposed"
+  },
+  {
+    "action_id": "A2-relocate-fi-turnip-rape",
+    "short_name": "Relocate 20% of turnip rape area",
+    "name": "Move 20% of Finnish turnip rape area from the highest-loss to the lowest-loss farms",
+    "driver": "warm May (pollen beetle), turnip rape",
+    "applies_at": "project_yields",
+    "override": {
+      "type": "relocate_area",
+      "share": 0.2
+    },
+    "scope": {
+      "units": [
+        [
+          "FI_SW",
+          "turnip_rape"
+        ]
+      ]
+    },
+    "cost": {
+      "eur_per_year": null,
+      "source": "not in the package; reported as the break-even cost"
+    },
+    "confidence": "medium: yield effect from the model; recruitment and advisory cost unknown",
+    "proposed_by": "team draft (stand-in for the action proposer agent)",
+    "status": "proposed"
+  },
+  {
+    "action_id": "A3-irrigate-potato-carrot",
+    "short_name": "Irrigate all potato and carrot (L24)",
+    "name": "Irrigation scheduling and drip for every potato and carrot grower (lever L24)",
+    "driver": "drought in the sensitive stage, potato and carrot",
+    "applies_at": "project_yields",
+    "override": {
+      "type": "set_irrigated",
+      "value": 1.0
+    },
+    "scope": {
+      "units": [
+        [
+          "FI_SW",
+          "potato"
+        ],
+        [
+          "FI_SW",
+          "carrot"
+        ]
+      ]
+    },
+    "cost": {
+      "eur_per_year": 60000,
+      "source": "decarbonisation_levers.csv, L24 opex_delta_eur_per_yr (design estimate; capex 0)"
+    },
+    "confidence": "medium: irrigation effect learned from the data; most of these growers already irrigate",
+    "proposed_by": "team draft (stand-in for the action proposer agent)",
+    "status": "proposed"
+  },
+  {
+    "action_id": "A4-irrigate-fi-pea",
+    "short_name": "Irrigate Finnish pea",
+    "name": "Irrigation for Finnish pea growers",
+    "driver": "drought in the sensitive stage, Finnish pea",
+    "applies_at": "project_yields",
+    "override": {
+      "type": "set_irrigated",
+      "value": 1.0
+    },
+    "scope": {
+      "units": [
+        [
+          "FI_SW",
+          "pea"
+        ]
+      ]
+    },
+    "cost": {
+      "eur_per_year": null,
+      "source": "not in the package"
+    },
+    "confidence": "low",
+    "proposed_by": "team draft (stand-in for the action proposer agent)",
+    "status": "proposed"
+  },
+  {
+    "action_id": "A5-early-sowing-fi-pea",
+    "short_name": "Sow Finnish pea up to 14 days earlier",
+    "name": "Allow Finnish pea sowing up to 14 days earlier",
+    "driver": "heat at flowering, Finnish pea",
+    "applies_at": "weather_features",
+    "override": {
+      "type": "shift_sowing",
+      "days": -14
+    },
+    "scope": {
+      "units": [
+        [
+          "FI_SW",
+          "pea"
+        ]
+      ]
+    },
+    "cost": {
+      "eur_per_year": 0,
+      "source": "assumption: no direct cost"
+    },
+    "confidence": "low: no recorded season was sown this early, and frost after sowing is not modelled",
+    "proposed_by": "team draft (stand-in for the action proposer agent)",
+    "status": "proposed"
+  },
+  {
+    "action_id": "A6-heat-tolerant-pea-fi",
+    "short_name": "Heat-tolerant Finnish pea (assumed)",
+    "name": "Heat-tolerant pea varieties in Finland, assumed to cut heat damage at flowering by 30%",
+    "driver": "heat at flowering, Finnish pea",
+    "applies_at": "project_yields",
+    "override": {
+      "type": "scale_feature",
+      "feature": "heat_days_27",
+      "factor": 0.7
+    },
+    "scope": {
+      "units": [
+        [
+          "FI_SW",
+          "pea"
+        ]
+      ]
+    },
+    "cost": {
+      "eur_per_year": null,
+      "source": "not in the package; reported as the break-even cost"
+    },
+    "confidence": "low: the 30% is an assumption; the data has no variety information",
+    "proposed_by": "team draft (stand-in for the action proposer agent)",
+    "status": "proposed"
+  }
+]

@@ -1,0 +1,321 @@
+{
+  "notebook": "c1_weather_features.ipynb",
+  "c1_scenario": "ssp245",
+  "soil_awc_mm": {
+    "sand": 60.0,
+    "fine_sand": 90.0,
+    "silt": 150.0,
+    "clay": 130.0,
+    "organic": 180.0
+  },
+  "gdd_base_c": 5.0,
+  "crop_params": {
+    "FI_SW/pea": {
+      "crop": "pea",
+      "sow_temp_c": 6.0,
+      "sow_earliest": "04-20",
+      "sow_latest": "06-10",
+      "gdd_maturity": 1100.0,
+      "cutoff": "08-31",
+      "flower": [
+        0.5,
+        0.75
+      ],
+      "sensitive": [
+        0.5,
+        0.8
+      ]
+    },
+    "SE_SKANE/pea": {
+      "crop": "pea",
+      "sow_temp_c": 9.0,
+      "sow_earliest": "04-20",
+      "sow_latest": "06-10",
+      "gdd_maturity": 600.0,
+      "cutoff": "08-31",
+      "flower": [
+        0.65,
+        0.9
+      ],
+      "sensitive": [
+        0.65,
+        1.15
+      ]
+    },
+    "FI_SW/turnip_rape": {
+      "crop": "turnip_rape",
+      "sow_temp_c": 6.0,
+      "sow_earliest": "04-20",
+      "sow_latest": "06-10",
+      "gdd_maturity": 1300.0,
+      "cutoff": "09-30",
+      "flower": [
+        0.35,
+        0.6
+      ],
+      "sensitive": [
+        0.35,
+        0.65
+      ]
+    },
+    "FI_SW/potato": {
+      "crop": "potato",
+      "sow_temp_c": 9.0,
+      "sow_earliest": "05-01",
+      "sow_latest": "06-15",
+      "gdd_maturity": 1400.0,
+      "cutoff": "09-30",
+      "flower": [
+        0.35,
+        0.6
+      ],
+      "sensitive": [
+        0.35,
+        0.85
+      ]
+    },
+    "FI_SW/carrot": {
+      "crop": "carrot",
+      "sow_temp_c": 9.0,
+      "sow_earliest": "04-25",
+      "sow_latest": "06-15",
+      "gdd_maturity": 1200.0,
+      "cutoff": "10-15",
+      "flower": [
+        0.2,
+        0.45
+      ],
+      "sensitive": [
+        0.2,
+        0.7
+      ]
+    },
+    "FI_SW/spinach": {
+      "crop": "spinach",
+      "sow_temp_c": 9.0,
+      "sow_earliest": "04-15",
+      "sow_latest": "05-31",
+      "gdd_maturity": 350.0,
+      "cutoff": "07-15",
+      "flower": [
+        0.65,
+        0.9
+      ],
+      "sensitive": [
+        0.65,
+        1.15
+      ]
+    }
+  },
+  "ready_window_doy": {
+    "FI_SW/pea": [
+      162.0,
+      207.0
+    ],
+    "SE_SKANE/pea": [
+      162.0,
+      207.0
+    ],
+    "FI_SW/turnip_rape": [
+      194.0,
+      268.0
+    ],
+    "FI_SW/potato": [
+      223.0,
+      268.3
+    ],
+    "FI_SW/carrot": [
+      225.0,
+      269.0
+    ],
+    "FI_SW/spinach": [
+      132.0,
+      177.0
+    ]
+  },
+  "selection_rule": "best CV error among settings within 5% of the best and ready inside the ERP delivery window",
+  "tuning_summary": [
+    {
+      "region": "FI_SW",
+      "crop": "pea",
+      "farm_years": 1043,
+      "gdd_maturity": 1100,
+      "sow_temp_c": 6,
+      "sensitive_window_gdd": "550-880",
+      "ready_median": "14 Aug",
+      "calendar": "later than deliveries",
+      "rmse_baseline": 0.23439078677599662,
+      "rmse_best_any": 0.11767260238940873,
+      "rmse_chosen": 0.11767260238940873,
+      "improvement_vs_baseline_pct": 49.796404539626174,
+      "best_any_window_gdd": "550-880",
+      "best_any_ready": "14 Aug",
+      "identification": "clear"
+    },
+    {
+      "region": "SE_SKANE",
+      "crop": "pea",
+      "farm_years": 2683,
+      "gdd_maturity": 600,
+      "sow_temp_c": 9,
+      "sensitive_window_gdd": "390-600",
+      "ready_median": "04 Jul",
+      "calendar": "plausible",
+      "rmse_baseline": 0.18845778841400238,
+      "rmse_best_any": 0.12853025142682206,
+      "rmse_chosen": 0.12853025142682206,
+      "improvement_vs_baseline_pct": 31.79891767355989,
+      "best_any_window_gdd": "390-600",
+      "best_any_ready": "04 Jul",
+      "identification": "clear"
+    },
+    {
+      "region": "FI_SW",
+      "crop": "turnip_rape",
+      "farm_years": 2011,
+      "gdd_maturity": 1300,
+      "sow_temp_c": 6,
+      "sensitive_window_gdd": "455-845",
+      "ready_median": "02 Sep",
+      "calendar": "plausible",
+      "rmse_baseline": 0.22582793188036984,
+      "rmse_best_any": 0.11877105719876074,
+      "rmse_chosen": 0.11877105719876074,
+      "improvement_vs_baseline_pct": 47.4063920216572,
+      "best_any_window_gdd": "455-845",
+      "best_any_ready": "02 Sep",
+      "identification": "clear"
+    },
+    {
+      "region": "FI_SW",
+      "crop": "potato",
+      "farm_years": 136,
+      "gdd_maturity": 1400,
+      "sow_temp_c": 9,
+      "sensitive_window_gdd": "490-1190",
+      "ready_median": "12 Sep",
+      "calendar": "plausible",
+      "rmse_baseline": 0.15101793621528337,
+      "rmse_best_any": 0.08442350466802818,
+      "rmse_chosen": 0.08442350466802818,
+      "improvement_vs_baseline_pct": 44.09703457496704,
+      "best_any_window_gdd": "490-1190",
+      "best_any_ready": "12 Sep",
+      "identification": "weak (few farms)"
+    },
+    {
+      "region": "FI_SW",
+      "crop": "carrot",
+      "farm_years": 95,
+      "gdd_maturity": 1200,
+      "sow_temp_c": 9,
+      "sensitive_window_gdd": "240-840",
+      "ready_median": "25 Aug",
+      "calendar": "plausible",
+      "rmse_baseline": 0.143193774383655,
+      "rmse_best_any": 0.10529074454535989,
+      "rmse_chosen": 0.11022176679109887,
+      "improvement_vs_baseline_pct": 23.026146027979657,
+      "best_any_window_gdd": "455-700",
+      "best_any_ready": "16 Jul",
+      "identification": "weak (few farms)"
+    },
+    {
+      "region": "FI_SW",
+      "crop": "spinach",
+      "farm_years": 152,
+      "gdd_maturity": 350,
+      "sow_temp_c": 9,
+      "sensitive_window_gdd": "228-350",
+      "ready_median": "15 Jun",
+      "calendar": "plausible",
+      "rmse_baseline": 0.12240019219373927,
+      "rmse_best_any": 0.10515768728447371,
+      "rmse_chosen": 0.11012549250395402,
+      "improvement_vs_baseline_pct": 10.028333673166479,
+      "best_any_window_gdd": "262-487",
+      "best_any_ready": "17 Jul",
+      "identification": "weak (few farms)"
+    }
+  ],
+  "model_features": {
+    "pea": [
+      "drought_stage",
+      "drought_x_irr",
+      "drought_early",
+      "heat_days_27",
+      "waterlog_clay",
+      "harvest_rain_14_mm",
+      "immature_gap",
+      "year_c",
+      "n_mineral_100"
+    ],
+    "turnip_rape": [
+      "drought_stage",
+      "drought_x_irr",
+      "drought_early",
+      "heat_days_27",
+      "waterlog_clay",
+      "harvest_rain_14_mm",
+      "immature_gap",
+      "year_c",
+      "n_mineral_100",
+      "may_tmean_c"
+    ],
+    "potato": [
+      "drought_stage",
+      "drought_x_irr",
+      "drought_early",
+      "heat_days_27",
+      "waterlog_clay",
+      "harvest_rain_14_mm",
+      "immature_gap",
+      "year_c",
+      "n_mineral_100",
+      "blight_days",
+      "blight_x_sprays"
+    ],
+    "carrot": [
+      "drought_stage",
+      "drought_x_irr",
+      "drought_early",
+      "heat_days_27",
+      "waterlog_clay",
+      "harvest_rain_14_mm",
+      "immature_gap",
+      "year_c",
+      "n_mineral_100"
+    ],
+    "spinach": [
+      "drought_stage",
+      "drought_x_irr",
+      "drought_early",
+      "heat_days_27",
+      "waterlog_clay",
+      "harvest_rain_14_mm",
+      "immature_gap",
+      "year_c",
+      "n_mineral_100"
+    ]
+  },
+  "feature_docs": {
+    "sow_doy": "Sowing day of year: first 5-day period with mean temperature >= sow_temp_c",
+    "mat_doy": "Day of year the maturity degree-days are reached (NaN if never)",
+    "immature": "1 if maturity not reached by the cutoff date",
+    "immature_gap": "1 - (degree-days reached by cutoff / maturity target), 0 if mature",
+    "season_gdd": "Degree-days (base 5 C) from sowing to harvest",
+    "rad_season_mj": "Radiation sum from sowing to harvest",
+    "heat_days_27": "Days with tmax >= 27 C in the flowering window",
+    "heat_days_30": "Days with tmax >= 30 C in the flowering window",
+    "deficit_stage_mm": "PET - rain in the drought-sensitive window (soil independent)",
+    "drought_stage": "Mean soil-water stress (1 - AET/PET) in the drought-sensitive window",
+    "drought_early": "Mean soil-water stress from sowing to the start of the sensitive window",
+    "waterlog_days": "Days with the soil bucket overflowing in the 21 days after sowing",
+    "waterlog_clay": "waterlog_days on clay soils, 0 otherwise (the truth model's clay waterlogging)",
+    "rain_post_sow_21_mm": "Rain in the 21 days after sowing",
+    "harvest_rain_14_mm": "Rain in the 14 days before harvest",
+    "harvest_wetdays_14": "Days with >= 1 mm rain in the 14 days before harvest",
+    "blight_days": "Warm wet days in Jul-Aug (rain >= 1 mm and 15-22 C mean): late-blight pressure",
+    "may_tmean_c": "Mean temperature in May: pollen-beetle pressure on turnip rape"
+  }
+}

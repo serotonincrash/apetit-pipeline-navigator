@@ -1,0 +1,181 @@
+unit,region,crop,scenario,driver,yield_effect_pct
+"Pea, Finland",FI_SW,pea,ssp126,drought in the sensitive stage,-0.253
+"Pea, Finland",FI_SW,pea,ssp126,early drought,1.019
+"Pea, Finland",FI_SW,pea,ssp126,heat at flowering,-2.149
+"Pea, Finland",FI_SW,pea,ssp126,rain before harvest,-0.882
+"Pea, Finland",FI_SW,pea,ssp126,warm May (pollen beetle),0.0
+"Pea, Finland",FI_SW,pea,ssp126,blight weather,0.0
+"Pea, Finland",FI_SW,pea,ssp126,waterlogging on clay,0.0
+"Pea, Finland",FI_SW,pea,ssp126,failure to mature,0.0
+"Pea, Finland",FI_SW,pea,ssp126,irrigation offset,0.0
+"Pea, Finland",FI_SW,pea,ssp126,spraying offset,0.0
+"Pea, Finland",FI_SW,pea,ssp245,drought in the sensitive stage,-0.259
+"Pea, Finland",FI_SW,pea,ssp245,early drought,1.179
+"Pea, Finland",FI_SW,pea,ssp245,heat at flowering,-2.615
+"Pea, Finland",FI_SW,pea,ssp245,rain before harvest,-0.9
+"Pea, Finland",FI_SW,pea,ssp245,warm May (pollen beetle),0.0
+"Pea, Finland",FI_SW,pea,ssp245,blight weather,0.0
+"Pea, Finland",FI_SW,pea,ssp245,waterlogging on clay,0.0
+"Pea, Finland",FI_SW,pea,ssp245,failure to mature,0.0
+"Pea, Finland",FI_SW,pea,ssp245,irrigation offset,0.0
+"Pea, Finland",FI_SW,pea,ssp245,spraying offset,0.0
+"Pea, Finland",FI_SW,pea,ssp585,drought in the sensitive stage,-0.609
+"Pea, Finland",FI_SW,pea,ssp585,early drought,1.45
+"Pea, Finland",FI_SW,pea,ssp585,heat at flowering,-3.683
+"Pea, Finland",FI_SW,pea,ssp585,rain before harvest,-0.604
+"Pea, Finland",FI_SW,pea,ssp585,warm May (pollen beetle),0.0
+"Pea, Finland",FI_SW,pea,ssp585,blight weather,0.0
+"Pea, Finland",FI_SW,pea,ssp585,waterlogging on clay,0.0
+"Pea, Finland",FI_SW,pea,ssp585,failure to mature,0.0
+"Pea, Finland",FI_SW,pea,ssp585,irrigation offset,0.0
+"Pea, Finland",FI_SW,pea,ssp585,spraying offset,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp126,drought in the sensitive stage,-0.459
+"Pea, Sweden",SE_SKANE,pea,ssp126,early drought,0.623
+"Pea, Sweden",SE_SKANE,pea,ssp126,heat at flowering,0.025
+"Pea, Sweden",SE_SKANE,pea,ssp126,rain before harvest,-0.09
+"Pea, Sweden",SE_SKANE,pea,ssp126,warm May (pollen beetle),0.0
+"Pea, Sweden",SE_SKANE,pea,ssp126,blight weather,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp126,waterlogging on clay,-0.206
+"Pea, Sweden",SE_SKANE,pea,ssp126,failure to mature,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp126,irrigation offset,0.048
+"Pea, Sweden",SE_SKANE,pea,ssp126,spraying offset,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp245,drought in the sensitive stage,-0.327
+"Pea, Sweden",SE_SKANE,pea,ssp245,early drought,0.732
+"Pea, Sweden",SE_SKANE,pea,ssp245,heat at flowering,0.025
+"Pea, Sweden",SE_SKANE,pea,ssp245,rain before harvest,0.067
+"Pea, Sweden",SE_SKANE,pea,ssp245,warm May (pollen beetle),0.0
+"Pea, Sweden",SE_SKANE,pea,ssp245,blight weather,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp245,waterlogging on clay,-0.213
+"Pea, Sweden",SE_SKANE,pea,ssp245,failure to mature,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp245,irrigation offset,0.036
+"Pea, Sweden",SE_SKANE,pea,ssp245,spraying offset,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp585,drought in the sensitive stage,-0.452
+"Pea, Sweden",SE_SKANE,pea,ssp585,early drought,0.86
+"Pea, Sweden",SE_SKANE,pea,ssp585,heat at flowering,0.022
+"Pea, Sweden",SE_SKANE,pea,ssp585,rain before harvest,-0.176
+"Pea, Sweden",SE_SKANE,pea,ssp585,warm May (pollen beetle),0.0
+"Pea, Sweden",SE_SKANE,pea,ssp585,blight weather,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp585,waterlogging on clay,-0.214
+"Pea, Sweden",SE_SKANE,pea,ssp585,failure to mature,0.0
+"Pea, Sweden",SE_SKANE,pea,ssp585,irrigation offset,0.051
+"Pea, Sweden",SE_SKANE,pea,ssp585,spraying offset,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,drought in the sensitive stage,-0.025
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,early drought,0.823
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,heat at flowering,-1.006
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,rain before harvest,-0.007
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,warm May (pollen beetle),-2.026
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,blight weather,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,waterlogging on clay,-0.028
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,failure to mature,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,irrigation offset,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp126,spraying offset,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,drought in the sensitive stage,-0.086
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,early drought,1.025
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,heat at flowering,-1.143
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,rain before harvest,-0.009
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,warm May (pollen beetle),-2.641
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,blight weather,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,waterlogging on clay,-0.045
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,failure to mature,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,irrigation offset,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp245,spraying offset,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,drought in the sensitive stage,-0.353
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,early drought,1.252
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,heat at flowering,-2.136
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,rain before harvest,-0.022
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,warm May (pollen beetle),-3.557
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,blight weather,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,waterlogging on clay,-0.052
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,failure to mature,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,irrigation offset,0.0
+"Turnip rape, Finland",FI_SW,turnip_rape,ssp585,spraying offset,0.0
+"Potato, Finland",FI_SW,potato,ssp126,drought in the sensitive stage,-0.967
+"Potato, Finland",FI_SW,potato,ssp126,early drought,0.012
+"Potato, Finland",FI_SW,potato,ssp126,heat at flowering,-1.33
+"Potato, Finland",FI_SW,potato,ssp126,rain before harvest,0.45
+"Potato, Finland",FI_SW,potato,ssp126,warm May (pollen beetle),0.0
+"Potato, Finland",FI_SW,potato,ssp126,blight weather,-1.633
+"Potato, Finland",FI_SW,potato,ssp126,waterlogging on clay,0.0
+"Potato, Finland",FI_SW,potato,ssp126,failure to mature,0.942
+"Potato, Finland",FI_SW,potato,ssp126,irrigation offset,0.458
+"Potato, Finland",FI_SW,potato,ssp126,spraying offset,1.615
+"Potato, Finland",FI_SW,potato,ssp245,drought in the sensitive stage,-1.099
+"Potato, Finland",FI_SW,potato,ssp245,early drought,0.012
+"Potato, Finland",FI_SW,potato,ssp245,heat at flowering,-1.534
+"Potato, Finland",FI_SW,potato,ssp245,rain before harvest,0.058
+"Potato, Finland",FI_SW,potato,ssp245,warm May (pollen beetle),0.0
+"Potato, Finland",FI_SW,potato,ssp245,blight weather,-1.276
+"Potato, Finland",FI_SW,potato,ssp245,waterlogging on clay,0.0
+"Potato, Finland",FI_SW,potato,ssp245,failure to mature,0.977
+"Potato, Finland",FI_SW,potato,ssp245,irrigation offset,0.528
+"Potato, Finland",FI_SW,potato,ssp245,spraying offset,1.257
+"Potato, Finland",FI_SW,potato,ssp585,drought in the sensitive stage,-2.002
+"Potato, Finland",FI_SW,potato,ssp585,early drought,0.011
+"Potato, Finland",FI_SW,potato,ssp585,heat at flowering,-2.175
+"Potato, Finland",FI_SW,potato,ssp585,rain before harvest,-0.134
+"Potato, Finland",FI_SW,potato,ssp585,warm May (pollen beetle),0.0
+"Potato, Finland",FI_SW,potato,ssp585,blight weather,0.223
+"Potato, Finland",FI_SW,potato,ssp585,waterlogging on clay,0.0
+"Potato, Finland",FI_SW,potato,ssp585,failure to mature,0.998
+"Potato, Finland",FI_SW,potato,ssp585,irrigation offset,1.007
+"Potato, Finland",FI_SW,potato,ssp585,spraying offset,-0.223
+"Carrot, Finland",FI_SW,carrot,ssp126,drought in the sensitive stage,-0.268
+"Carrot, Finland",FI_SW,carrot,ssp126,early drought,-0.364
+"Carrot, Finland",FI_SW,carrot,ssp126,heat at flowering,0.008
+"Carrot, Finland",FI_SW,carrot,ssp126,rain before harvest,0.071
+"Carrot, Finland",FI_SW,carrot,ssp126,warm May (pollen beetle),0.0
+"Carrot, Finland",FI_SW,carrot,ssp126,blight weather,0.0
+"Carrot, Finland",FI_SW,carrot,ssp126,waterlogging on clay,0.0
+"Carrot, Finland",FI_SW,carrot,ssp126,failure to mature,0.0
+"Carrot, Finland",FI_SW,carrot,ssp126,irrigation offset,0.117
+"Carrot, Finland",FI_SW,carrot,ssp126,spraying offset,0.0
+"Carrot, Finland",FI_SW,carrot,ssp245,drought in the sensitive stage,-0.381
+"Carrot, Finland",FI_SW,carrot,ssp245,early drought,-0.435
+"Carrot, Finland",FI_SW,carrot,ssp245,heat at flowering,0.017
+"Carrot, Finland",FI_SW,carrot,ssp245,rain before harvest,0.095
+"Carrot, Finland",FI_SW,carrot,ssp245,warm May (pollen beetle),0.0
+"Carrot, Finland",FI_SW,carrot,ssp245,blight weather,0.0
+"Carrot, Finland",FI_SW,carrot,ssp245,waterlogging on clay,0.0
+"Carrot, Finland",FI_SW,carrot,ssp245,failure to mature,0.0
+"Carrot, Finland",FI_SW,carrot,ssp245,irrigation offset,0.171
+"Carrot, Finland",FI_SW,carrot,ssp245,spraying offset,0.0
+"Carrot, Finland",FI_SW,carrot,ssp585,drought in the sensitive stage,-0.734
+"Carrot, Finland",FI_SW,carrot,ssp585,early drought,-0.492
+"Carrot, Finland",FI_SW,carrot,ssp585,heat at flowering,0.057
+"Carrot, Finland",FI_SW,carrot,ssp585,rain before harvest,0.107
+"Carrot, Finland",FI_SW,carrot,ssp585,warm May (pollen beetle),0.0
+"Carrot, Finland",FI_SW,carrot,ssp585,blight weather,0.0
+"Carrot, Finland",FI_SW,carrot,ssp585,waterlogging on clay,0.0
+"Carrot, Finland",FI_SW,carrot,ssp585,failure to mature,0.0
+"Carrot, Finland",FI_SW,carrot,ssp585,irrigation offset,0.335
+"Carrot, Finland",FI_SW,carrot,ssp585,spraying offset,0.0
+"Spinach, Finland",FI_SW,spinach,ssp126,drought in the sensitive stage,0.503
+"Spinach, Finland",FI_SW,spinach,ssp126,early drought,0.822
+"Spinach, Finland",FI_SW,spinach,ssp126,heat at flowering,-1.107
+"Spinach, Finland",FI_SW,spinach,ssp126,rain before harvest,0.074
+"Spinach, Finland",FI_SW,spinach,ssp126,warm May (pollen beetle),0.0
+"Spinach, Finland",FI_SW,spinach,ssp126,blight weather,0.0
+"Spinach, Finland",FI_SW,spinach,ssp126,waterlogging on clay,0.0
+"Spinach, Finland",FI_SW,spinach,ssp126,failure to mature,0.0
+"Spinach, Finland",FI_SW,spinach,ssp126,irrigation offset,-0.009
+"Spinach, Finland",FI_SW,spinach,ssp126,spraying offset,0.0
+"Spinach, Finland",FI_SW,spinach,ssp245,drought in the sensitive stage,0.758
+"Spinach, Finland",FI_SW,spinach,ssp245,early drought,0.998
+"Spinach, Finland",FI_SW,spinach,ssp245,heat at flowering,-0.852
+"Spinach, Finland",FI_SW,spinach,ssp245,rain before harvest,0.082
+"Spinach, Finland",FI_SW,spinach,ssp245,warm May (pollen beetle),0.0
+"Spinach, Finland",FI_SW,spinach,ssp245,blight weather,0.0
+"Spinach, Finland",FI_SW,spinach,ssp245,waterlogging on clay,0.0
+"Spinach, Finland",FI_SW,spinach,ssp245,failure to mature,0.0
+"Spinach, Finland",FI_SW,spinach,ssp245,irrigation offset,-0.018
+"Spinach, Finland",FI_SW,spinach,ssp245,spraying offset,0.0
+"Spinach, Finland",FI_SW,spinach,ssp585,drought in the sensitive stage,0.997
+"Spinach, Finland",FI_SW,spinach,ssp585,early drought,1.246
+"Spinach, Finland",FI_SW,spinach,ssp585,heat at flowering,-0.387
+"Spinach, Finland",FI_SW,spinach,ssp585,rain before harvest,0.095
+"Spinach, Finland",FI_SW,spinach,ssp585,warm May (pollen beetle),0.0
+"Spinach, Finland",FI_SW,spinach,ssp585,blight weather,0.0
+"Spinach, Finland",FI_SW,spinach,ssp585,waterlogging on clay,0.0
+"Spinach, Finland",FI_SW,spinach,ssp585,failure to mature,0.0
+"Spinach, Finland",FI_SW,spinach,ssp585,irrigation offset,-0.021
+"Spinach, Finland",FI_SW,spinach,ssp585,spraying offset,0.0

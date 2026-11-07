@@ -1,0 +1,7 @@
+region,crop,farm_years,gdd_maturity,sow_temp_c,sensitive_window_gdd,ready_median,calendar,rmse_baseline,rmse_best_any,rmse_chosen,improvement_vs_baseline_pct,best_any_window_gdd,best_any_ready,identification
+FI_SW,pea,1043,1100,6,550-880,14 Aug,later than deliveries,0.234391,0.117673,0.117673,49.796405,550-880,14 Aug,clear
+SE_SKANE,pea,2683,600,9,390-600,04 Jul,plausible,0.188458,0.12853,0.12853,31.798918,390-600,04 Jul,clear
+FI_SW,turnip_rape,2011,1300,6,455-845,02 Sep,plausible,0.225828,0.118771,0.118771,47.406392,455-845,02 Sep,clear
+FI_SW,potato,136,1400,9,490-1190,12 Sep,plausible,0.151018,0.084424,0.084424,44.097035,490-1190,12 Sep,weak (few farms)
+FI_SW,carrot,95,1200,9,240-840,25 Aug,plausible,0.143194,0.105291,0.110222,23.026146,455-700,16 Jul,weak (few farms)
+FI_SW,spinach,152,350,9,228-350,15 Jun,plausible,0.1224,0.105158,0.110125,10.028334,262-487,17 Jul,weak (few farms)
