@@ -10,6 +10,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from navigator.db.decisions import ProposalStatus, RuleStatus
+from navigator.evidence import Evidence
 from navigator.recipes.core import Layer, StepKind
 
 PersonaRole = Literal["data_specialist", "sustainability_specialist"]
@@ -263,15 +264,6 @@ class Proposal(ApiModel):
     latest_decision: Decision | None
 
 
-class Evidence(ApiModel):
-    summary: str = Field(description="One line of plain text saying why the rule fired.")
-    record_keys: list[str] = Field(description="The records the proposal rests on.")
-    query: dict[str, Any] = Field(
-        description="How to reproduce the finding: rule, comparison, group."
-    )
-    values: dict[str, float] = Field(description="Named numbers the explanation cites.")
-
-
 class ProposalDetail(Proposal):
     evidence: Evidence
     explanation: str | None
@@ -425,7 +417,18 @@ class ActionOptionDecisionRequest(ApiModel):
 
 class ReportParagraph(ApiModel):
     heading: str | None
-    text: str = Field(description="Numbers appear as citation tokens such as {{metric:met_...}}.")
+    text: str = Field(
+        description="Numbers appear only as tokens, {{metric:met_...}} or {{insight:ins_...}}."
+    )
+    call_id: str = Field(description="The logged LLM call that wrote this paragraph.")
+
+
+class Insight(ApiModel):
+    insight_id: str
+    step: str = Field(description="The step that found it.")
+    title: str
+    text: str = Field(description="Numbers appear only as metric tokens.")
+    metric_ids: list[str]
 
 
 class Report(ApiModel):
@@ -436,6 +439,7 @@ class Report(ApiModel):
     published_at: datetime | None
     paragraphs: list[ReportParagraph]
     metrics: dict[str, Metric] = Field(description="Every cited metric, by metric id.")
+    insights: list[Insight] = Field(description="The result set's insights, for the dashboard.")
 
 
 class ResultSetDecisionRequest(ApiModel):

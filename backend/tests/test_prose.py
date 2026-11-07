@@ -21,7 +21,7 @@ def test_plain_text_passes() -> None:
         "About ~5 parcels.",
         "Robust checks on the farm file.",
         "This will Leverage the data.",
-        "Shows insights for each crop.",
+        "Gives actionable findings for each crop.",
         "Covers various crops.",
         "Handles a number of farms.",
         "Drops rows and more.",
@@ -51,3 +51,7 @@ def test_word_limit() -> None:
     assert check("one two three", max_words=3) == []
     problems = check("one two three four", max_words=3)
     assert problems == ["Has 4 words, over the limit of 3."]
+
+
+def test_insight_is_a_domain_term_not_a_banned_word() -> None:
+    assert check("A dashboard of its key metrics and insights.") == []

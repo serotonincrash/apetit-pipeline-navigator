@@ -2395,6 +2395,79 @@
         ],
         "title": "ActionOptionDecisionRequest"
       },
+      "Aggregate": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "median",
+              "mean",
+              "sum",
+              "count",
+              "min",
+              "max"
+            ],
+            "title": "Op"
+          },
+          "column": {
+            "type": "string",
+            "title": "Column"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "op",
+          "column"
+        ],
+        "title": "Aggregate",
+        "description": "A value computed over each row's group, for example the median yield per crop and year."
+      },
+      "Arithmetic": {
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "add",
+              "subtract",
+              "multiply",
+              "divide"
+            ],
+            "title": "Op"
+          },
+          "left": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Left"
+          },
+          "right": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Right"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "op",
+          "left",
+          "right"
+        ],
+        "title": "Arithmetic",
+        "description": "A value computed per row from two columns, computed values or numbers."
+      },
       "Artifact": {
         "properties": {
           "artifact_id": {
@@ -2606,6 +2679,98 @@
         ],
         "title": "BulkProposalDecisionRequest"
       },
+      "ComputeQuery": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "compute",
+            "title": "Kind"
+          },
+          "table": {
+            "type": "string",
+            "title": "Table"
+          },
+          "join": {
+            "items": {
+              "$ref": "#/components/schemas/Join"
+            },
+            "type": "array",
+            "title": "Join"
+          },
+          "group_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Group By"
+          },
+          "compute": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/Aggregate"
+                },
+                {
+                  "$ref": "#/components/schemas/Arithmetic"
+                }
+              ]
+            },
+            "type": "object",
+            "minProperties": 1,
+            "title": "Compute"
+          },
+          "where": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "integer"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ]
+                  },
+                  "type": "array"
+                },
+                {
+                  "additionalProperties": {
+                    "type": "number"
+                  },
+                  "type": "object"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Where"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "table",
+          "compute"
+        ],
+        "title": "ComputeQuery"
+      },
       "Decision": {
         "properties": {
           "decision_id": {
@@ -2700,21 +2865,35 @@
           "summary": {
             "type": "string",
             "title": "Summary",
-            "description": "One line of plain text saying why the rule fired."
+            "description": "One line of plain text saying why the proposal was made."
           },
           "record_keys": {
             "items": {
               "type": "string"
             },
             "type": "array",
+            "minItems": 1,
             "title": "Record Keys",
             "description": "The records the proposal rests on."
           },
           "query": {
-            "additionalProperties": true,
-            "type": "object",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/RuleQuery"
+              },
+              {
+                "$ref": "#/components/schemas/ComputeQuery"
+              }
+            ],
             "title": "Query",
-            "description": "How to reproduce the finding: rule, comparison, group."
+            "description": "How to recompute the values from the raw tables.",
+            "discriminator": {
+              "propertyName": "kind",
+              "mapping": {
+                "compute": "#/components/schemas/ComputeQuery",
+                "rule": "#/components/schemas/RuleQuery"
+              }
+            }
           },
           "values": {
             "additionalProperties": {
@@ -2725,6 +2904,7 @@
             "description": "Named numbers the explanation cites."
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "summary",
@@ -2760,6 +2940,67 @@
           "status"
         ],
         "title": "Health"
+      },
+      "Insight": {
+        "properties": {
+          "insight_id": {
+            "type": "string",
+            "title": "Insight Id"
+          },
+          "step": {
+            "type": "string",
+            "title": "Step",
+            "description": "The step that found it."
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "description": "Numbers appear only as metric tokens."
+          },
+          "metric_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Metric Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "insight_id",
+          "step",
+          "title",
+          "text",
+          "metric_ids"
+        ],
+        "title": "Insight"
+      },
+      "Join": {
+        "properties": {
+          "table": {
+            "type": "string",
+            "title": "Table"
+          },
+          "on": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "On"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "table",
+          "on"
+        ],
+        "title": "Join"
       },
       "Metric": {
         "properties": {
@@ -3416,6 +3657,14 @@
             "type": "object",
             "title": "Metrics",
             "description": "Every cited metric, by metric id."
+          },
+          "insights": {
+            "items": {
+              "$ref": "#/components/schemas/Insight"
+            },
+            "type": "array",
+            "title": "Insights",
+            "description": "The result set's insights, for the dashboard."
           }
         },
         "type": "object",
@@ -3426,7 +3675,8 @@
           "drafted_at",
           "published_at",
           "paragraphs",
-          "metrics"
+          "metrics",
+          "insights"
         ],
         "title": "Report"
       },
@@ -3446,13 +3696,19 @@
           "text": {
             "type": "string",
             "title": "Text",
-            "description": "Numbers appear as citation tokens such as {{metric:met_...}}."
+            "description": "Numbers appear only as tokens, {{metric:met_...}} or {{insight:ins_...}}."
+          },
+          "call_id": {
+            "type": "string",
+            "title": "Call Id",
+            "description": "The logged LLM call that wrote this paragraph."
           }
         },
         "type": "object",
         "required": [
           "heading",
-          "text"
+          "text",
+          "call_id"
         ],
         "title": "ReportParagraph"
       },
@@ -3671,6 +3927,44 @@
           "decision"
         ],
         "title": "RuleDecisionRequest"
+      },
+      "RuleQuery": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "const": "rule",
+            "title": "Kind"
+          },
+          "rule_id": {
+            "type": "string",
+            "title": "Rule Id"
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params"
+          },
+          "group": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group",
+            "description": "The group the record was compared within, if any."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "kind",
+          "rule_id"
+        ],
+        "title": "RuleQuery"
       },
       "Run": {
         "properties": {
@@ -4526,8 +4820,7 @@
               "propose",
               "transform",
               "model",
-              "llm",
-              "human"
+              "llm"
             ],
             "title": "Kind"
           },

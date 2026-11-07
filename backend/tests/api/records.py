@@ -9,7 +9,12 @@ from navigator.db.session import session_scope
 EVIDENCE: dict[str, Any] = {
     "summary": "Yield is 1000 times the farm median.",
     "record_keys": ["farm_survey:FS02175"],
-    "query": {"rule": "R1", "compare": "yield_t_ha / median(yield_t_ha by crop, year)"},
+    "query": {
+        "kind": "rule",
+        "rule_id": "R1",
+        "params": {"r1_yield_max_ratio_to_median": 5.0},
+        "group": None,
+    },
     "values": {"yield_t_ha": 5400.0, "median": 5.4, "ratio_to_median": 1000.0},
 }
 

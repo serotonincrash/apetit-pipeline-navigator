@@ -16,7 +16,7 @@ is what people see; the "In code" column is the name in tables, columns and func
 | Weather cell | `cell`, `cell_id` | Weather cell | One square of the weather grid |
 | Driver | `driver` | Driver | A weather cause of loss, such as heat at flowering or drought in the sensitive stage |
 | Climate scenario | `scenario` (`historical`, `ssp126`, `ssp245`, `ssp585`) | Past weather, Low emissions (SSP1-2.6), Middle (SSP2-4.5), High emissions (SSP5-8.5) | The SSP weather a number uses |
-| Transition scenario | `ngfs_scenario` | As named by NGFS | The NGFS scenario that sets import premiums |
+| Transition scenario | `ngfs_scenario` | See Transition scenarios below | The NGFS scenario that sets import premiums |
 | Crop calendar | `crop_params` | Crop calendar | Sowing trigger, maturity degree-days and sensitive window for a region and crop |
 | Shortfall | `shortfall` | Shortfall | Contracted volume minus what the farms deliver in a season, when positive |
 | Contracted volume | `contracted_volume` | Contracted volume | 2025 contract area times today's normal yield |
@@ -47,5 +47,19 @@ is what people see; the "In code" column is the name in tables, columns and func
 | What-if run | `kind = "what_if"` | What-if | A run that starts from an approved run with one action applied |
 | Insight | `insight` | Insight | A finding that is not a priced metric, with numbers only as metric tokens |
 | Catalogue policy | `reviewer = "Catalogue policy"` | Approved by catalogue policy | Approval of the seeded catalogue actions, so the first run has actions to price |
+
+## Transition scenarios
+
+The package's NGFS scenarios, the name to show for each, and the climate scenario each is matched to (the `physical_pathway_proxy` column of `transition_scenarios.csv`):
+
+| In code | In the app | Climate scenario |
+| --- | --- | --- |
+| `net_zero_2050` | Net Zero 2050 | Low emissions (SSP1-2.6) |
+| `below_2c` | Below 2°C | Low emissions (SSP1-2.6) |
+| `low_demand` | Low Demand | Low emissions (SSP1-2.6) |
+| `delayed_transition` | Delayed Transition | Middle (SSP2-4.5) |
+| `fragmented_world` | Fragmented World | Middle (SSP2-4.5) |
+| `ndcs` | Nationally Determined Contributions (NDCs) | Middle (SSP2-4.5) |
+| `current_policies` | Current Policies | High emissions (SSP5-8.5) |
 
 "Scenario" alone is never used in app copy or reports. Say "climate scenario" or "transition scenario".

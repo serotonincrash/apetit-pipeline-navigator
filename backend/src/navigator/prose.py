@@ -24,7 +24,6 @@ _BANNED_WORDS = [
     "foster",
     "empower",
     "unlock",
-    "insights",
     "actionable",
     # vague amounts
     "various",

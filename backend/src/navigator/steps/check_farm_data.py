@@ -115,9 +115,9 @@ def find_tenfold_yields(survey: pd.DataFrame, max_ratio: float) -> pd.DataFrame:
     ratio = survey["yield_t_ha"] / median
     hits = survey[ratio > max_ratio]
     query = {
-        "rule": "R1",
-        "compare": "yield_t_ha / median(yield_t_ha by crop, year)",
-        "threshold": max_ratio,
+        "kind": "rule",
+        "rule_id": "R1",
+        "params": {"r1_yield_max_ratio_to_median": max_ratio},
     }
     evidence = [
         evidence_dict(
@@ -165,11 +165,9 @@ def find_shifted_nitrogen(
     new = np.where(high[hits.index], hits["n_mineral_kg_ha"] / 10, hits["n_mineral_kg_ha"] * 10)
     new = new.round(1)
     query = {
-        "rule": "R2",
-        "compare": "n_mineral_kg_ha / median(n_mineral_kg_ha by farm_id, crop)",
-        "fallback": "median(n_mineral_kg_ha by crop) when the farm median is 0",
-        "threshold_high": ratio_high,
-        "threshold_low": ratio_low,
+        "kind": "rule",
+        "rule_id": "R2",
+        "params": {"r2_nitrogen_ratio_high": ratio_high, "r2_nitrogen_ratio_low": ratio_low},
     }
     evidence = [
         evidence_dict(
@@ -206,11 +204,7 @@ def find_area_mismatches(survey: pd.DataFrame, tolerance: float) -> pd.DataFrame
     """R3: survey areas that differ from the declared parcels, replaced by the parcel total."""
     ratio: pd.Series[float] = survey["area_ha"] / survey["decl_area_ha"]
     hits = survey[(ratio - 1).abs() > tolerance]
-    query = {
-        "rule": "R3",
-        "compare": "area_ha / sum(area_ha of declared parcels by farm_id, year, crop)",
-        "tolerance": tolerance,
-    }
+    query = {"kind": "rule", "rule_id": "R3", "params": {"r3_area_tolerance": tolerance}}
     evidence = [
         evidence_dict(
             f"survey {a} ha vs {d:.2f} ha in declared parcels (ratio {a / d:.2f})",
@@ -240,10 +234,9 @@ def find_soil_misreports(survey: pd.DataFrame, organic_share_threshold: float) -
         & survey["soil_type_reported"].eq("Mineral soil")
     ]
     query = {
-        "rule": "R4",
-        "compare": "organic_share_soilmap of declared parcels, where soil_type_reported is "
-        "Mineral soil",
-        "threshold": organic_share_threshold,
+        "kind": "rule",
+        "rule_id": "R4",
+        "params": {"r4_organic_share_threshold": organic_share_threshold},
     }
     evidence = [
         evidence_dict(
@@ -280,7 +273,7 @@ def find_swapped_coordinates(registry: pd.DataFrame, parcels: pd.DataFrame) -> p
         centroid, on="farm_id", rsuffix="_parcels"
     )
     keys = "farm:" + hits["farm_id"]
-    query = {"rule": "R5", "compare": "farm_registry lat < lon"}
+    query: dict[str, Any] = {"kind": "rule", "rule_id": "R5", "params": {}}
 
     def evidence() -> list[dict[str, Any]]:
         return [

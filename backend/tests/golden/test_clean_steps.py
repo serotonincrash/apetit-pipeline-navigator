@@ -6,6 +6,7 @@ import json
 import numpy as np
 import pytest
 
+from navigator.evidence import Evidence, reproduces
 from navigator.recipes.core import PROPOSALS_INPUT, Artifact, RunContext, StepResult
 from navigator.steps.apply_approved import apply_approved
 from navigator.steps.spatial_join import spatial_join
@@ -40,7 +41,8 @@ def test_every_proposal_has_structured_evidence(farm_checks: StepResult) -> None
         assert set(evidence) == {"summary", "record_keys", "query", "values"}
         assert isinstance(evidence["summary"], str) and evidence["summary"]
         assert record_key in evidence["record_keys"]
-        assert isinstance(evidence["query"], dict) and evidence["query"]["rule"] == rule_id
+        assert evidence["query"]["kind"] == "rule" and evidence["query"]["rule_id"] == rule_id
+        Evidence.model_validate(evidence)
         assert evidence["values"]
         assert all(type(v) is float for v in evidence["values"].values())
         assert json.loads(json.dumps(evidence)) == evidence
@@ -121,3 +123,38 @@ def test_unreviewed_yield_fixes_are_named_once_coordinates_are_fixed(
     )
     with pytest.raises(ValueError, match="18 yield fixes from rule R1 are waiting for review"):
         run_step(ctx, spatial_join, "spatial_join", tables)
+
+
+def test_an_r1_proposal_recomputes_from_the_raw_survey(
+    raw_tables: dict[str, Artifact], farm_checks: StepResult
+) -> None:
+    """The compute form an agent would use reproduces a real R1 proposal's numbers."""
+    assert farm_checks.proposals is not None
+    r1 = farm_checks.proposals[farm_checks.proposals["rule_id"].eq("R1")].iloc[0]
+    rule_values = r1["evidence"]["values"]
+    survey = raw_tables["farm_survey"].frame.assign(
+        record_key="farm_survey:" + raw_tables["farm_survey"].frame["survey_id"]
+    )
+    agent_evidence = Evidence.model_validate(
+        {
+            "summary": r1["evidence"]["summary"],
+            "record_keys": [r1["record_key"]],
+            "query": {
+                "kind": "compute",
+                "table": "farm_survey",
+                "group_by": ["crop", "year"],
+                "compute": {
+                    "median": {"op": "median", "column": "yield_t_ha"},
+                    "ratio_to_median": {"op": "divide", "left": "yield_t_ha", "right": "median"},
+                },
+                "where": {"record_key": r1["record_key"]},
+            },
+            "values": {
+                k: v
+                for k, v in rule_values.items()
+                if k in ("yield_t_ha", "median", "ratio_to_median")
+            },
+        }
+    )
+    ok, reason = reproduces(agent_evidence, {"farm_survey": survey})
+    assert ok, reason

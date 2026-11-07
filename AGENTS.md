@@ -97,7 +97,7 @@ Rules for all three:
    - Openers and closers that say nothing: "It's worth noting", "Importantly", "In summary", a last line that repeats the paragraph.
    - Filler words: genuinely, honestly, straightforward, seamless, robust, leverage, delve, crucial, comprehensive.
    - Emoji.
-   - Inflated words: highlights, underscores, showcases, plays a key role, landscape, ensure, foster, empower, unlock, insights, actionable.
+   - Inflated words: highlights, underscores, showcases, plays a key role, landscape, ensure, foster, empower, unlock, actionable. Insight is a glossary term and is allowed.
    - Vague amounts: various, several, a number of, "and more". Give the count. Use "significant" only in its statistical sense.
    - Lists of three by habit, such as "fast, reliable and transparent", where one word would do.
    - Headings written as questions or with a colon subtitle ("Why it matters", "Risk: a closer look").

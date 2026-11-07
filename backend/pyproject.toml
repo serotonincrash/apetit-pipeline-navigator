@@ -66,6 +66,8 @@ strict = [
     "src/navigator/ids.py",
     "src/navigator/logs.py",
     "src/navigator/seed.py",
+    "src/navigator/evidence.py",
+    "src/navigator/prose.py",
 ]
 pythonVersion = "3.12"
 reportMissingTypeStubs = false

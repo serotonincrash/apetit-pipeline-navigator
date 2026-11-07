@@ -94,7 +94,7 @@ The web app talks only to the API. The API writes runs into the Postgres queue a
 | Live progress | REST for everything, plus a server-sent event stream per run for step and section progress. |
 | LLM | Gemini through an AI Studio API key, using Google's `google-genai` SDK behind a thin internal wrapper: prompt in, validated JSON out, every call logged. |
 | Data sent to the LLM | During the hackathon only the synthetic challenge package goes to Gemini. Real Apetit data waits for Apetit's written answer on LLM use; the wrapper lets them switch provider. |
-| LLM failures | Output that fails its JSON schema, a guardrail or the prose check goes back to the model with the error, at most twice. After that the call is recorded as failed and shows in its queue. A failed report draft produces no draft, never a partial one. If the key fails or the quota runs out, the wrapper switches to the fake model the tests use, and the call log records the switch. |
+| LLM failures | Output that fails its JSON schema, a guardrail or the prose check goes back to the model with the error, at most twice. After that the call is recorded as failed. It shows on the item it was for, for example "Explanation failed" on a proposal in Data review or a failed draft on the Report screen, and as a call.failed event on the run timeline. A failed report draft produces no draft, never a partial one. If the key fails or the quota runs out, the wrapper switches to the fake model the tests use, and the call log records the switch. |
 | Agent rule sandbox | Rule code written by an agent runs only after a person approves it, and only in a separate sandbox service: no network, a read-only file system, and CPU, memory and time limits. The worker sends it the input table and the rule code, and gets proposals back as JSON that must pass the proposal schema. Rules written by people run in the worker. |
 | Sign-in | None for the hackathon. A persona switcher picks the role and the name recorded on decisions. |
 | Code and tools | A new monorepo; uv for Python dependencies; golden-number tests (each step reproduces the notebooks' results) plus tests of the main API flows. |
@@ -144,7 +144,9 @@ climate-nature-navigator/
 │   ├── seed/                     the seed job
 │   └── .env.example
 ├── scripts/
-│   └── worktree.sh               set up or remove a worktree with its own database and bucket
+│   ├── worktree.sh               set up or remove a worktree with its own database and bucket
+│   ├── reset_demo.sh             put the demo VM back in its prepared state
+│   └── check_prose.py            the writing standards' prose check
 ├── docs/                         method note, Fabric mapping, usage instructions, glossary.md
 ├── AGENTS.md                     coding and writing standards for coding agents
 └── .pre-commit-config.yaml       ruff, pyright, Biome, tsc, golden tests
@@ -158,7 +160,7 @@ The API queues a run, the worker executes it, and its progress streams to the ap
 | --- | --- | --- |
 | Full | The raw package in SeaweedFS and the fixes approved so far | Every step of the recipe |
 | What-if | An approved run and one approved action spec | Only the steps from the action's override point; earlier steps reuse the parent run's artifacts |
-| Report | A succeeded run's result set | Only the report drafter. Each report run writes a new numbered draft to the report table; drafts are never overwritten |
+| Report | A succeeded run's result set | Only the report drafter. Each report run writes a new numbered draft to the report table; drafts are never overwritten. Publishing publishes the latest draft, and earlier drafts become superseded and stay readable |
 
 States:
 
@@ -177,6 +179,7 @@ Events are stored in a `run_event` table and streamed at `GET /api/runs/{id}/eve
 | `step.started` / `step.finished` | A step starts or ends | Step name, its annotation, duration, status |
 | `section.started` / `section.finished` | A named section inside a step starts or ends | Section annotation, duration |
 | `proposal.created` | A check step or agent writes proposals | Count per rule |
+| `call.failed` | An LLM call fails after its two retries | Agent, the item it was for, the reason |
 | `run.finished` | The run ends | Final state, result set id |
 
 ## API
@@ -270,14 +273,14 @@ On the Vultr VM:
 2. Copy the repo and the unzipped package to the VM, and fill in `.env`.
 3. Run `docker compose up -d`. The seed job loads the data; Caddy fetches the certificate.
 4. Queue one full run of each recipe, review and publish its results, so judges find a complete example waiting.
-5. After the judges have used the app, run `scripts/reset_demo.sh`. It empties the database and the bucket, reseeds the package, and queues and approves one full run again, so the VM is back in its prepared state.
+5. After the judges have used the app, run `scripts/reset_demo.sh`. Give it the name to record on the approvals, for example "A. Reviewer". It empties the tables and the bucket, reseeds the package and the catalogue, runs the recipe, approves the R1, R2, R3 and R5 fixes in that name, and runs again, so the VM is back in its prepared state.
 6. Size the VM after a test run there; SeaweedFS stays internal.
 
 ## Local development
 
 Several coding agents work on one computer at once, each in its own git worktree on its own branch. They share one Postgres and one SeaweedFS per computer, and each worktree gets its own database and bucket inside them.
 
-The `dev` profile of the Compose file starts only Postgres and SeaweedFS. In each worktree the API, the worker and the Vite dev server run on the host, with `uv run` and `npm run dev`, against that worktree's database and bucket.
+The `dev` profile of the Compose file starts only Postgres, SeaweedFS and the sandbox, shared by every worktree on the computer. In each worktree the API, the worker and the Vite dev server run on the host, with `uv run` and `npm run dev`, against that worktree's database and bucket.
 
 `scripts/worktree.sh up <name> <slot>` sets up a worktree in one command:
 
@@ -356,7 +359,7 @@ Rules for all three:
    - Openers and closers that say nothing: "It's worth noting", "Importantly", "In summary", a last line that repeats the paragraph.
    - Filler words: genuinely, honestly, straightforward, seamless, robust, leverage, delve, crucial, comprehensive.
    - Emoji.
-   - Inflated words: highlights, underscores, showcases, plays a key role, landscape, ensure, foster, empower, unlock, insights, actionable.
+   - Inflated words: highlights, underscores, showcases, plays a key role, landscape, ensure, foster, empower, unlock, actionable. Insight is a glossary term and is allowed.
    - Vague amounts: various, several, a number of, "and more". Give the count. Use "significant" only in its statistical sense.
    - Lists of three by habit, such as "fast, reliable and transparent", where one word would do.
    - Headings written as questions or with a colon subtitle ("Why it matters", "Risk: a closer look").
@@ -469,7 +472,7 @@ Generated interfaces tend to look alike: every page a grid of identical cards wi
 
 ## Data model
 
-Feventeen tables hold everything the platform knows: what went in, what each step did, what people decided and what came out. Data tables themselves (raw, cleaned, features) are Parquet files registered as artifacts; these tables describe them. They live in Postgres, and the artifacts are Parquet files in SeaweedFS (see Backend architecture). In Fabric, the artifacts become Delta tables in the Lakehouse.
+Seventeen tables hold everything the platform knows: what went in, what each step did, what people decided and what came out. Data tables themselves (raw, cleaned, features) are Parquet files registered as artifacts; these tables describe them. They live in Postgres, and the artifacts are Parquet files in SeaweedFS (see Backend architecture). In Fabric, the artifacts become Delta tables in the Lakehouse.
 
 | Table | One row is | Key columns | Written by |
 | --- | --- | --- | --- |
@@ -510,7 +513,7 @@ def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
 - `Artifact` is one table: `name`, `layer` (raw, clean, feature or result), `frame` (a DataFrame) and `artifact_id` once stored. A table's name is how later steps ask for it, and it is unique within a run.
 - `RunContext` carries `run_id`, `recipe_id` and `sources`, the package files by path. Only `load_raw` reads `sources`.
 - `params` are the step's params from the recipe, with any overrides queued with the run.
-- The recipe definition lists the tables each step reads. The input named `proposals` is filled by the runner with this run's proposals and their current status (open, approved, rejected or flag).
+- The recipe definition lists the tables each step reads. The input named `proposals` is filled by the runner with this run's proposals and their current status (open, approved, rejected or flag). Each carries its effective value: for an edited fix, the edited value from its latest decision replaces new\_value.
 - `StepResult` holds `tables` (the artifacts the step writes), `proposals` (a table with the columns below, or none), `decisions` (approvals under a policy a person signed off; recipe 1 writes none), `rules` (one row per rule: rule\_id, version, description, author, backtest), `assumptions` (each input value used, with its unit and source), and in later milestones `metrics` and `insights`.
 
 ### Proposal columns
@@ -525,6 +528,28 @@ def tune_calendar(ctx: RunContext, inputs: dict[str, Artifact], params: Params) 
 | `evidence` | JSON: a one-line `summary`, the `record_keys` it rests on, the `query` that reproduces it, and named `values` (for example `{"ratio_to_median": 9.8}`) that explanations cite as evidence tokens |
 | `explanation` | The review explainer's text, with numbers only as evidence tokens such as `{{ev:ratio_to_median}}` |
 | `proposer` | `rule R1`, or `agent:fix-proposer` with its call id |
+
+### Evidence query
+
+The `query` in a proposal's evidence says how to recompute its `values`, in one of two forms, defined in `backend/src/navigator/evidence.py`:
+
+- `rule`: the proposal came from one of our rules. The query names the rule, its params and, where it compared within a group, that group. Recomputing means running the rule again.
+- `compute`: the proposal came from an agent. The query is a fixed structure with no free text, which the runner evaluates with its own code and compares with the claimed values, to a relative 1e-6. A mismatch, an unknown operation or column, or a query that does not select exactly one row rejects the proposal.
+
+```json
+{"kind": "compute", "table": "farm_survey", "group_by": ["crop", "year"],
+ "compute": {"median": {"op": "median", "column": "yield_t_ha"},
+             "ratio_to_median": {"op": "divide", "left": "yield_t_ha", "right": "median"}},
+ "where": {"record_key": "farm_survey:FS00236"}}
+```
+
+| Field | Meaning |
+| --- | --- |
+| `table` | The raw table to read |
+| `join` | Other raw tables to join, each with the key columns to join on (optional) |
+| `group_by` | The columns that form the groups for aggregates |
+| `compute` | Named values, in order. An aggregate is the median, mean, sum, count, min or max of a column within its group; arithmetic adds, subtracts, multiplies or divides two columns, earlier values or numbers |
+| `where` | A filter in the lineage filter's form, selecting the proposal's record |
 
 ### Lineage filter
 
@@ -565,7 +590,7 @@ What the new steps compute:
 
 - `fit_yield_model`: the within-farm model already used for tuning. Log yield equals the farm's own level plus the weather and management effects. It is checked season by season on held-out years and reports its error next to the farm-average baseline.
 - `project_yields`: there is only one weather run per scenario, so we build an ensemble. Take each historical season from 1991–2020, shift its temperature and scale its rain by the monthly changes in `climate_change_signals.csv` for that scenario, and recompute evaporation with the same Hargreaves formula the package uses. Run the 30 shifted seasons per cell through the features and the model, with today's parcels, management and the trend held at 2026, and simulate each season 50 times with the model's leftover error, drawn with a fixed random seed (2026; the bootstrap of differences uses seed 7). Both seeds are params, recorded as assumptions on every run, which is what lets the golden test match to the cent. A bad year is a yield under 80% of the 1991–2020 average, the package's own definition. The single delivered run for each scenario serves as a check.
-- `price_risk`: contracted volume is the 2025 contract area (the parcels declared for 2025 in parcel\_crop\_history\_and\_plan.csv) times the normal yield of today's farms, from the model on 1991–2020 weather (1996–2025 weather changes it by under 2%, kept as a sensitivity). The shortfall in a season is the volume below that. Its extra cost is the shortfall times the contract price times the replacement premium, using `contract_prices_and_replacement_premiums.csv` and the import-premium paths in `transition_scenarios.csv` for each NGFS (transition) scenario, matched to its climate scenario by that file's physical\_pathway\_proxy column. Extra emissions are the shortfall times the full import emission factor, because the domestic fields are farmed either way. The factors per region and crop are in notebooks/results/import\_ef.json, from 0.31 t CO2e per tonne for carrot to 1.35 for turnip rape. Shortfalls are priced as market imports only; Foodhills supply is written as an insight (see Data model), not counted.
+- `price_risk`: contracted volume is the 2025 contract area (the parcels declared for 2025 in parcel\_crop\_history\_and\_plan.csv) times the normal yield of today's farms, from the model on 1991–2020 weather (1996–2025 weather changes it by under 2%, kept as a sensitivity). The shortfall in a season is the volume below that. Its extra cost is the shortfall times the contract price times the replacement premium, using `contract_prices_and_replacement_premiums.csv` and the import-premium paths in `transition_scenarios.csv` for each NGFS (transition) scenario, matched to its climate scenario by that file's physical\_pathway\_proxy column. The glossary lists the seven NGFS scenarios with their display names and climate scenarios. Extra emissions are the shortfall times the full import emission factor, because the domestic fields are farmed either way. The factors per region and crop are in notebooks/results/import\_ef.json, from 0.31 t CO2e per tonne for carrot to 1.35 for turnip rape. Shortfalls are priced as market imports only; Foodhills supply is written as an insight (see Data model), not counted.
 - `compare_actions`: each approved action spec is run as a what-if on top of the approved run, then priced (see Actions and what-if runs). On the first run the six catalogue actions are already approved, by the Catalogue policy at seeding, so the step always has something to price. The catalogue and what each action changes are under Actions and what-if runs.
 
 Every assumption these steps use (prices, premiums, the 80% threshold, lever costs, ensemble size, random seeds) is a row in `assumption`, shown to the reviewer and changeable by starting a new run.
@@ -654,7 +679,7 @@ Four agents do the reading and writing a person would otherwise do. None of them
 
 Guardrails, enforced in code rather than in the prompt:
 
-1. Every agent output is checked against its JSON schema and the prose check before it is stored. A failure goes back to the model with the error, at most twice. After that the call is recorded as failed and shows in its queue.
+1. Every agent output is checked against its JSON schema and the prose check before it is stored. A failure goes back to the model with the error, at most twice. After that the call is recorded as failed. It shows on the item it was for, for example "Explanation failed" on a proposal in Data review or a failed draft on the Report screen, and as a call.failed event on the run timeline.
 2. Evidence names the record keys and the query that produced it. The runner re-runs the query, and a proposal whose evidence does not reproduce is rejected automatically.
 3. A rule proposed by an agent goes to review with its backtest attached: how many labelled issues it catches and how many correct records it flags. Its code runs only after a person approves it, and only in the sandbox service.
 4. The explainer never types a number. It writes evidence tokens such as `{{ev:ratio_to_median}}`, which the app fills from the proposal's evidence values. A token that names no value fails the check.

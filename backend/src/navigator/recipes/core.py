@@ -24,7 +24,7 @@ from typing import Any, Literal, Protocol
 import pandas as pd
 
 Layer = Literal["raw", "clean", "feature", "result"]
-StepKind = Literal["load", "propose", "transform", "model", "llm", "human"]
+StepKind = Literal["load", "propose", "transform", "model", "llm"]
 Params = Mapping[str, Any]
 
 # Columns of StepResult.proposals. `proposal_key` (rule, record key and field) is stable across
