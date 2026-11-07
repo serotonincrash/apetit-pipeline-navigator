@@ -33,10 +33,10 @@ def features(crop: str) -> list[str]:
 
 def fit(df: pd.DataFrame, cols, lam: float = 0.01, shrink_seasons: float = 2.0) -> dict:
     """Fit one region-crop unit on farm-year rows (needs farm_id, year, yield_t_ha and `cols`)."""
-    d = df.dropna(subset=list(cols) + ["yield_t_ha"]).reset_index(drop=True)
+    d = df.dropna(subset=[*cols, "yield_t_ha"]).reset_index(drop=True)
     y = np.log(d["yield_t_ha"].values)
     X = d[list(cols)].values.astype(float)
-    farm = d["farm_id"].values
+    farm = d["farm_id"].to_numpy()
     xm = pd.DataFrame(X).groupby(farm).transform("mean").values
     ym = pd.Series(y).groupby(farm).transform("mean").values
     beta = cv._fit(X - xm, y - ym, lam, X_raw=X)
@@ -47,12 +47,12 @@ def fit(df: pd.DataFrame, cols, lam: float = 0.01, shrink_seasons: float = 2.0) 
     farm_level = (level["size"] * level["mean"] + k * mu) / (level["size"] + k)
 
     resid = y - farm_level.reindex(farm).values - X @ beta
-    year_mean = pd.Series(resid).groupby(d["year"].values).mean()
+    year_mean = pd.Series(resid).groupby(d["year"].to_numpy()).mean()
     within = resid - d["year"].map(year_mean).values
     sd = float(resid.std())
     return {
         "features": list(cols),
-        "beta": dict(zip(cols, beta.tolist())),
+        "beta": dict(zip(cols, beta.tolist(), strict=True)),
         "farm_level": farm_level.to_dict(),
         "mean_level": mu,
         "n_rows": len(d),
@@ -77,9 +77,12 @@ def predict(model: dict, df: pd.DataFrame) -> pd.Series:
     return pd.Series(np.exp(level + X @ b) * model["smearing"], index=df.index)
 
 
-def management_defaults(history: pd.DataFrame, last_n: int = 3) -> pd.DataFrame:
+def management_defaults(
+    history: pd.DataFrame, last_n: int = 3
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Management inputs to assume for future seasons: each farm's average over its last `last_n`
-    surveyed seasons for that crop, else the region-crop median. Returns one row per farm and crop."""
+    surveyed seasons for that crop, else the region-crop median. Returns one row per farm and
+    crop, and the medians per region and crop."""
     h = history.sort_values("year").groupby(["region", "farm_id", "crop"]).tail(last_n)
     per_farm = (
         h.groupby(["region", "farm_id", "crop"])[MANAGEMENT].mean(numeric_only=True).reset_index()

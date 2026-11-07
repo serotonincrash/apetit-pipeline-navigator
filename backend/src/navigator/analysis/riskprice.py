@@ -50,12 +50,16 @@ def premiums(
     """Replacement premium per region, crop and NGFS scenario for 2041-60 (plus today's premium)."""
     p = prices[prices["year"].eq(price_year)].set_index("item")
     t = transition.pivot(index="scenario", columns="year", values="frozen_veg_import_premium_pct")
-    proxy = transition.drop_duplicates("scenario").set_index("scenario")["physical_pathway_proxy"]
+    proxy = (
+        transition.drop_duplicates("scenario")
+        .set_index("scenario")["physical_pathway_proxy"]
+        .to_dict()
+    )
     lift = ((t[[2045, 2050]].mean(axis=1) - t[2025]) / 100).rename("lift")
     rows = []
     for (r, c), item in PRICE_ITEM.items():
-        base = float(p.loc[item, "replacement_import_premium_frac"])
-        price = float(p.loc[item, "contract_price_eur_t"])
+        base = float(p["replacement_import_premium_frac"].loc[item])
+        price = float(p["contract_price_eur_t"].loc[item])
         rows.append(
             {
                 "region": r,
@@ -66,7 +70,7 @@ def premiums(
                 "premium": base,
             }
         )
-        for ngfs, l in lift.items():
+        for ngfs, rise in lift.items():
             rows.append(
                 {
                     "region": r,
@@ -74,7 +78,7 @@ def premiums(
                     "ngfs": ngfs,
                     "ssp": proxy[ngfs],
                     "contract_price_eur_t": price,
-                    "premium": base + (l if item in FROZEN else 0.0),
+                    "premium": base + (rise if item in FROZEN else 0.0),
                 }
             )
     return pd.DataFrame(rows)
@@ -83,8 +87,9 @@ def premiums(
 def price_draws(
     draws: pd.DataFrame, contracted: pd.DataFrame, prem: pd.DataFrame, import_ef: dict
 ) -> pd.DataFrame:
-    """Shortfall, extra cost and extra emissions for every simulated season, under every NGFS scenario
-    paired with the draw's climate scenario. `import_ef` maps (region, crop) to tCO2e per tonne."""
+    """Shortfall, extra cost and extra emissions for every simulated season, under every NGFS
+    scenario paired with the draw's climate scenario. `import_ef` maps (region, crop) to tCO2e per
+    tonne."""
     d = draws[~draws["scenario"].str.endswith("_run")].merge(
         contracted[["region", "crop", "contracted_t"]], on=["region", "crop"]
     )
@@ -92,9 +97,13 @@ def price_draws(
     d = d.merge(prem.rename(columns={"ssp": "scenario"}), on=["region", "crop", "scenario"])
     d["extra_cost_eur"] = d["shortfall_t"] * d["contract_price_eur_t"] * d["premium"]
     d["import_tco2e"] = d["shortfall_t"] * [
-        import_ef[(r, c)] for r, c in zip(d["region"], d["crop"])
+        import_ef[(r, c)] for r, c in zip(d["region"], d["crop"], strict=True)
     ]
     return d
+
+
+def _share_short_10pct(seasons: pd.DataFrame) -> float:
+    return (seasons["shortfall_t"] > 0.1 * seasons["contracted_t"]).mean()
 
 
 def summarise(priced: pd.DataFrame, by=("region", "crop", "scenario", "ngfs")) -> pd.DataFrame:
@@ -104,9 +113,8 @@ def summarise(priced: pd.DataFrame, by=("region", "crop", "scenario", "ngfs")) -
         {
             "contracted_t": g["contracted_t"].first(),
             "expected_shortfall_t": g["shortfall_t"].mean(),
-            "share_of_seasons_short_10pct": g.apply(
-                lambda x: (x["shortfall_t"] > 0.1 * x["contracted_t"]).mean(), include_groups=False
-            ),
+            # pandas-stubs 3 dropped include_groups, which pandas 2.3 still takes
+            "share_of_seasons_short_10pct": g.apply(_share_short_10pct, include_groups=False),  # pyright: ignore[reportCallIssue]
             "expected_cost_eur": g["extra_cost_eur"].mean(),
             "one_in_ten_cost_eur": g["extra_cost_eur"].quantile(0.9),
             "expected_import_tco2e": g["import_tco2e"].mean(),

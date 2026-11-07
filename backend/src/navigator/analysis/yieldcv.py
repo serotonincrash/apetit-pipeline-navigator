@@ -32,11 +32,11 @@ def loyo(df: pd.DataFrame, cols, lam=0.01, min_train_years=3):
     season is predicted as farm mean + (features - farm's mean features) . beta.
     Farms with fewer than `min_train_years` training seasons do not inform beta.
     """
-    df = df.dropna(subset=list(cols) + ["yield_t_ha"]).reset_index(drop=True)
+    df = df.dropna(subset=[*cols, "yield_t_ha"]).reset_index(drop=True)
     y = np.log(df["yield_t_ha"].values)
     X = df[list(cols)].values.astype(float)
     f, _ = pd.factorize(df["farm_id"])
-    nf, years = f.max() + 1, df["year"].values
+    nf, years = f.max() + 1, df["year"].to_numpy()
     pred = np.full(len(df), np.nan)
     base = np.full(len(df), np.nan)
     for yr in np.unique(years):
@@ -54,7 +54,10 @@ def loyo(df: pd.DataFrame, cols, lam=0.01, min_train_years=3):
         base[te] = my[f[te]]
         pred[te] = base[te] + (X[te] - mx[f[te]]) @ beta
     ok = ~np.isnan(pred)
-    rmse = lambda e: float(np.sqrt(np.mean(e**2)))
+
+    def rmse(e):
+        return float(np.sqrt(np.mean(e**2)))
+
     out = df.assign(log_pred=pred, log_base=base)
     summary = {
         "n": int(ok.sum()),
@@ -66,8 +69,9 @@ def loyo(df: pd.DataFrame, cols, lam=0.01, min_train_years=3):
 
 
 def fit_coefficients(df, cols, lam=0.01):
-    """Full-sample within-farm fit, for interpretation (effect of +1 SD of each feature, in % yield)."""
-    df = df.dropna(subset=list(cols) + ["yield_t_ha"])
+    """Full-sample within-farm fit, for interpretation (effect of +1 SD of each feature, in %
+    yield)."""
+    df = df.dropna(subset=[*cols, "yield_t_ha"])
     y = np.log(df["yield_t_ha"].values)
     X = df[list(cols)].values.astype(float)
     xm = pd.DataFrame(X).groupby(df["farm_id"].values).transform("mean").values
@@ -80,7 +84,8 @@ def fit_coefficients(df, cols, lam=0.01):
 
 
 # Model specification shared by the tuning step and the modelling notebook.
-# Interactions follow the truth-model description: irrigation mitigates drought, sprays mitigate blight.
+# Interactions follow the truth-model description: irrigation mitigates drought, sprays mitigate
+# blight.
 COMMON_FEATURES = [
     "drought_stage",
     "drought_x_irr",
