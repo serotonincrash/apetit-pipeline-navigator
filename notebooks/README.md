@@ -2,6 +2,8 @@
 
 Notebooks for Track C (climate risk to farming) of the Since AI Hackathon 2026. They read the unzipped challenge package and never change it.
 
+`c1_minna.zip` holds a second implementation of C1, with the filled `C1_submission.csv`, the yield pipeline, an Excel workbook and an interactive chart page. Its `readme.txt` lists the files.
+
 ## Setup
 
 The notebooks run in the backend's uv environment. Their extra packages (the Jupyter kernel, nbclient and matplotlib) are in the `notebooks` dependency group in `backend/pyproject.toml`. Install everything once from `backend/`:
